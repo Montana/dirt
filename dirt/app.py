@@ -10,11 +10,11 @@ from gevent.server import StreamServer
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
-from ensi_common import dt
-from ensi_common.iter import isiter
-from ensi_common.rpc.common import is_expected
-from ensi_common.rpc.connection import SocketError, ConnectionPool
-from ensi_common.rpc.server import ConnectionHandler
+import .dt
+from .iter import isiter
+from .rpc.common import is_expected
+from .rpc.connection import SocketError, ConnectionPool
+from .rpc.server import ConnectionHandler
 
 log = logging.getLogger(__name__)
 

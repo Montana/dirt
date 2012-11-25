@@ -7,8 +7,8 @@ import gevent
 from gevent.event import Event
 from gevent import GreenletExit
 
-from ensi_common.rpc.common import expected, Call as _Call
-from ensi_common.testing import (
+from ..rpc.common import expected, Call as _Call
+from ..testing import (
     assert_contains, parameterized, LumTest, assert_logged,
 )
 

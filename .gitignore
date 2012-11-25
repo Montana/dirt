@@ -1,0 +1,25 @@
+syntax: glob
+*.thumb.png
+*.class
+*.o
+*.pyc
+*.sqlite3
+*.sw[op]
+*~
+*#
+.#*
+.DS_Store
+bin-debug/*
+bin-release/*
+tags
+*.beam
+*.dump
+env/
+pip-log.txt
+*.egg-info/
+dist/
+.tox/
+
+syntax: regexp
+^ssl/.*\.old
+

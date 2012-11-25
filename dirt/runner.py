@@ -8,9 +8,8 @@ from types import ModuleType
 from gevent import Timeout
 from setproctitle import setproctitle
 
-from ensi_common.gevent_ import fork
-from ensi_common.rpc.client import SimpleClient
-
+from .rpc.client import SimpleClient
+from .gevent_ import fork
 from .log import setup_logging, ColoredFormatter
 
 
@@ -61,7 +60,7 @@ def run_rpc_shell(global_settings, app_name):
         print "%r doesn't exist - not logging API calls" %(logfile_root, )
     else:
         logfile = os.path.join(logfile_root, app_name)
-        from ensi_common.rpc import connection
+        from .rpc import connection
         connection.full_message_log_enable(logfile)
         print "Logging API calls to %r", logfile
 
@@ -206,7 +205,7 @@ def run_app(app_name, settings):
     setup_logging(app_name, settings)
     use_reloader = getattr(settings, "USE_RELOADER", False)
     if use_reloader and not settings.stop_app:
-        from ensi_common.reloader import run_with_reloader
+        from .reloader import run_with_reloader
         setproctitle("%s-reloader" %(app_name, ))
         return run_with_reloader(lambda: _run(app_name, settings))
     else:
@@ -217,7 +216,7 @@ def setup_blocking_detector(settings):
     if not timeout:
         return
     import gevent
-    from ensi_common.gevent_utils import BlockingDetector
+    from .gevent_ import BlockingDetector
     raise_exc = getattr(settings, "BLOCKING_DETECTOR_RAISE_EXC", False)
     gevent.spawn(BlockingDetector(timeout=timeout, raise_exc=raise_exc))
 
