@@ -354,13 +354,13 @@ class PIDFile(object):
 
 
 class DirtApp(object):
-    api_meta = APIMeta
+    edge_class = APIMeta
     debug_api_class = DebugAPI
 
     def __init__(self, app_name, settings):
         self.app_name = app_name
         self.settings = settings
-        self.edge = DirtApp.api_meta(self, self.settings)
+        self.edge = self.edge_class(self, self.settings)
 
     def run(self):
         try:
