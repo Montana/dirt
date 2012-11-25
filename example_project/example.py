@@ -1,12 +1,27 @@
 import time
-from dirt import DirtApp
+import logging
+
+from dirt import DirtApp, runloop
+
+log = logging.getLogger(__name__)
+
+class FirstAPI(object):
+    def ping(self):
+        return "pong"
 
 class FirstApp(DirtApp):
-    def serve_forever(self):
-        print "FirstApp is serving forever..."
-        time.sleep(100)
+    def get_api(self, socket, address):
+        return FirstAPI()
+
+    def start(self):
+        log.info("starting...")
+
 
 class SecondApp(DirtApp):
+    @runloop(log)
     def serve_forever(self):
-        print "SecondApp is serving forever..."
-        time.sleep(100)
+        log.info("Trying to ping FirstApp...")
+        api = self.settings.get_api("first")
+        while True:
+            time.sleep(1)
+            log.info("ping: %r", api.ping())
