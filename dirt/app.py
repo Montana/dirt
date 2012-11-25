@@ -152,9 +152,11 @@ class APIMeta(object):
     }
 
     _call_semaphore = None
+    rpc_class = DirtRPCServer        # set/lookup via settings?
 
-    def __init__(self, app):
+    def __init__(self, app, settings):
         self.app = app
+        self.settings = settings
 
     def _get_call_semaphore(self, call):
         if self.call_is_debug(call):
@@ -279,6 +281,8 @@ class APIMeta(object):
         f._timeout = None
         return f
 
+    def serve(self):
+        self.rpc_class(self.settings.bind, self)
 
 class PIDFile(object):
     def __init__(self, path):
@@ -353,12 +357,11 @@ class PIDFile(object):
 class DirtApp(object):
     api_meta = APIMeta
     debug_api_class = DebugAPI
-    rpc_class = DirtRPCServer        # set/lookup via settings?
 
     def __init__(self, app_name, settings):
         self.app_name = app_name
         self.settings = settings
-        self.edge = DirtApp.api_meta(self)
+        self.edge = DirtApp.api_meta(self, self.settings)
 
     def run(self):
         try:
@@ -375,7 +378,7 @@ class DirtApp(object):
 
     def serve(self):
         log.info("binding to %s:%s" %self.settings.bind)
-        self.server = DirtApp.rpc_class(self.settings.bind, self.edge)
+        self.edge.serve()
 
     def pidfile_path(self):
         pidfile_path_tmpl = getattr(self.settings, "DIRT_APP_PIDFILE", None)
