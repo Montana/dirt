@@ -7,6 +7,7 @@ log = logging.getLogger(__name__)
 
 class FirstAPI(object):
     def ping(self):
+        log.info("got ping...")
         return "pong"
 
 class FirstApp(DirtApp):
