@@ -10,7 +10,7 @@ DIRT_APP_PIDFILE = "/tmp/dirt-example-{app_name}.pid"
 class FIRST:
     app_class = "example.FirstApp"
     rpc_proxy = RPCClient
-    bind = ("localhost", 9990)
+    bind = ("", 9990)
     remote = ("localhost", 9990)
 
 class SECOND:

@@ -12,6 +12,7 @@ from gevent import GreenletExit
 from dirt import dt
 from dirt.iter import isiter
 from dirt.rpc.dirt_rpc import DirtRPCServer
+from dirt.rpc.dirt_zerorpc import DirtZeroRPCServer
 
 log = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ class APIMeta(object):
     }
 
     _call_semaphore = None
-    rpc_class = DirtRPCServer        # XXX: set/lookup via settings?
+    rpc_class = DirtZeroRPCServer        # XXX: set/lookup via settings?
 
     def __init__(self, app, settings):
         self.app = app

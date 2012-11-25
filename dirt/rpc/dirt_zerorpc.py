@@ -7,9 +7,10 @@ class DirtZeroRPCServer(zerorpc.Server):
 
     def __init__(self, edge, settings):
         self.edge = edge
-        zerorpc.Server.__init__(self, methods=edge.get_api())
+        zerorpc.Server.__init__(self, methods=edge.get_api(None)) #FIXME
         binding = "tcp://%s:%s" % settings.bind
         self.bind(binding)
+        self.run()
 
     def _async_task(self, initial_event):
         ### TODO: Use ZeroRPC middleware functionality
