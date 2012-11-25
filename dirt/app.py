@@ -184,7 +184,7 @@ class APIMeta(object):
     def execute(self, call):
         method = self.lookup_method(call)
         if method is None:
-            raise expected(ValueError("invalid method: %r" %(call.name, )))
+            raise expected(ValueError("invalid method: %r" %(call.name, ))) # XXX: expected undefined
         return self.call_method(call, method)
 
     def lookup_method(self, call):
