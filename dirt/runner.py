@@ -8,9 +8,9 @@ from types import ModuleType
 from gevent import Timeout
 from setproctitle import setproctitle
 
-from .rpc.dirtrpc.client import SimpleClient
-from .gevent_ import fork
-from .log import setup_logging, ColoredFormatter
+from dirt.rpc.dirtrpc.client import SimpleClient
+from dirt.gevent_ import fork
+from dirt.log import setup_logging, ColoredFormatter
 
 
 log = logging.getLogger(__name__)
@@ -23,7 +23,6 @@ class SettingsWrapper(object):
         for link in self.chain:
             if hasattr(link, name):
                 return getattr(link, name)
-
         raise AttributeError("Cannot find {0!r} in settings chain".format(name))
 
 
@@ -97,7 +96,7 @@ class DirtRunner(object):
         print "available apps:"
         print "    " + "\n    ".join(self.list_apps())
 
-    def run_many(self, argv=None):
+    def handle_argv(self, argv):
         if argv is None:
             argv = sys.argv
 
@@ -123,6 +122,13 @@ class DirtRunner(object):
         if len(argv) < 2:
             self.usage(argv)
             return 1
+
+        return None
+
+    def run_many(self, argv=None):
+        ret = self.handle_argv(argv)
+        if ret is not None:
+            return ret
 
         class RUN_SETTINGS:
             log_to_hub = False

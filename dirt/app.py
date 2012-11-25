@@ -9,9 +9,9 @@ from gevent import Timeout
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
-from . import dt
-from .iter import isiter
-from .rpc.dirt_rpc import DirtRPCServer
+from dirt import dt
+from dirt.iter import isiter
+from dirt.rpc.dirt_rpc import DirtRPCServer
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class DebugAPI(object):
         """ Returns some general status information. """
         api_calls = dict(self.meta.call_stats)
         num_pending = len([
-            call for (_, call) in self.meta.active_calls
+            call for call in self.meta.active_calls
             if not call.meta.get("time_in_queue")
         ])
         api_calls.update({
@@ -86,7 +86,7 @@ class DebugAPI(object):
 
     def connection_status(self):
         """ Returns a description of all the active connection pools. """
-        return rpc.status()
+        return rpc.status() # XXX: ``rpc`` not defined
 
 
 class APIMeta(object):
@@ -147,7 +147,7 @@ class APIMeta(object):
     }
 
     _call_semaphore = None
-    rpc_class = DirtRPCServer        # set/lookup via settings?
+    rpc_class = DirtRPCServer        # XXX: set/lookup via settings?
 
     def __init__(self, app, settings):
         self.app = app
@@ -179,7 +179,7 @@ class APIMeta(object):
     def execute(self, call):
         method = self.lookup_method(call)
         if method is None:
-            raise expected(ValueError("invalid method: %r" %(call.name, )))
+            raise expected(ValueError("invalid method: %r" %(call.name, ))) # XXX: expected undefined
         return self.call_method(call, method)
 
     def lookup_method(self, call):
@@ -227,9 +227,8 @@ class APIMeta(object):
                         self.max_concurrent_calls, self.address, call.name)
 
         call_semaphore.acquire()
-        active_call_tuple = (call) # removed self.address
         def finished_callback(is_error):
-            self.active_calls.remove(active_call_tuple)
+            self.active_calls.remove(call)
             self.call_stats["completed"] += 1
             if is_error:
                 self.call_stats["errors"] += 1
@@ -244,7 +243,7 @@ class APIMeta(object):
                 timeout.start()
             time_in_queue = time.time() - call.meta.get("time_received", 0)
             call.meta["time_in_queue"] = time_in_queue
-            self.active_calls.append(active_call_tuple)
+            self.active_calls.append(call)
             result = method(*call.args, **call.kwargs)
             if isiter(result):
                 result = self.wrap_generator_result(call, result,
@@ -350,13 +349,13 @@ class PIDFile(object):
 
 
 class DirtApp(object):
-    api_meta = APIMeta
+    edge_class = APIMeta
     debug_api_class = DebugAPI
 
     def __init__(self, app_name, settings):
         self.app_name = app_name
         self.settings = settings
-        self.edge = DirtApp.api_meta(self, self.settings)
+        self.edge = self.edge_class(self, self.settings)
 
     def run(self):
         try:
@@ -487,9 +486,10 @@ def runloop(log, sleep=time.sleep):
             except GreenletExit:
                 log.debug("%r stopping due to GreenletExit", func)
                 raise
-            except Exception, e:
+            except Exception:
                 sleep_time = get_sleep_time(start_time)
                 log_suffix = "restarting in %s..." %(sleep_time, )
+
                 log.exception("%r raised unexpected exception; %s",
                               func, log_suffix)
             sleep(sleep_time)

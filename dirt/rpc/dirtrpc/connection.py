@@ -2,16 +2,15 @@ import sys
 import cgi
 import time
 import urllib
-import socket
 import logging
 import functools
 from itertools import chain
 
 import bson
+from gevent import socket
 
+from dirt.strutil import truncate
 from dirt.rpc.common import expected
-from ...strutil import truncate
-
 
 log = logging.getLogger(__name__)
 

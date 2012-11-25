@@ -1,10 +1,10 @@
 from nose.tools import assert_equal
 from mock import Mock
 
-from ...app import APIMeta
+from dirt.app import APIMeta
+from dirt.testing import parameterized
 
 from ..server import ConnectionHandler
-from ...testing import parameterized
 
 
 class MockApp(object):

@@ -9,7 +9,7 @@ from mock import Mock
 from ..connection import (
     ServerConnection, ClientConnection, ConnectionError, MessageSocket,
 )
-from ...testing import assert_contains, parameterized
+from dirt.testing import assert_contains, parameterized
 
 
 class TestConnection(object):
