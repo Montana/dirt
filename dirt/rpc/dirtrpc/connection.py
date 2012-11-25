@@ -2,14 +2,15 @@ import sys
 import cgi
 import time
 import urllib
-import socket
 import logging
 import functools
 from itertools import chain
 
 import bson
+from gevent import socket
 
-from ...strutil import truncate
+from dirt.strutil import truncate
+
 from .common import expected
 
 log = logging.getLogger(__name__)

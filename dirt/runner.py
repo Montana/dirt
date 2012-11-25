@@ -23,7 +23,6 @@ class SettingsWrapper(object):
         for link in self.chain:
             if hasattr(link, name):
                 return getattr(link, name)
-
         raise AttributeError("Cannot find {0!r} in settings chain".format(name))
 
 

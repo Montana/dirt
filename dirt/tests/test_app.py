@@ -8,8 +8,8 @@ from gevent.event import Event
 from gevent import GreenletExit
 
 
-from ..rpc.common import expected, Call as _Call
-from ..testing import (
+from dirt.rpc.common import expected, Call as _Call
+from dirt.testing import (
     assert_contains, parameterized, assert_logged,
     setup_logging, teardown_logging,
 )
@@ -135,7 +135,7 @@ class TestAPIMeta(XXXTestBase):
 
     def test_normal_call(self):
         Meta = self.Meta()
-        meta = Meta(MockApp(), None, ("1.2.3.4", 1234))
+        meta = Meta(MockApp(), self.get_settings())
         api = meta.app.api
         call = Call("foo")
 
@@ -147,7 +147,7 @@ class TestAPIMeta(XXXTestBase):
 
     def test_debug_call(self):
         Meta = self.Meta()
-        meta = Meta(MockApp(), None, ("1.2.3.4", 1234))
+        meta = Meta(MockApp(), self.get_settings())
         debug_api = meta.app.debug_api
         call = Call("debug.foo")
 
@@ -159,7 +159,7 @@ class TestAPIMeta(XXXTestBase):
 
     def test_timeout(self):
         Meta = self.Meta(call_timeout=0.0)
-        meta = Meta(MockApp(), None, ("1.2.3.4", 1234))
+        meta = Meta(MockApp(), self.get_settings())
 
         foo = lambda: gevent.sleep(0.01)
         try:
@@ -171,7 +171,7 @@ class TestAPIMeta(XXXTestBase):
 
     def test_no_timeout_decorator(self):
         Meta = self.Meta(call_timeout=0.0)
-        meta = Meta(MockApp(), None, ("1.2.3.4", 1234))
+        meta = Meta(MockApp(), self.get_settings())
 
         foo = meta.no_timeout(Mock())
         meta.call_method(Call("foo"), foo)
@@ -192,11 +192,11 @@ class TestAPIMeta(XXXTestBase):
             in_second_method.set()
 
         app = MockApp()
-        meta0 = Meta(app, None, ("1.2.3.4", 1234))
+        meta0 = Meta(app, self.get_settings())
         gevent.spawn(meta0.call_method, Call("first_method"), first_method)
         in_first_method.wait()
 
-        meta1 = Meta(app, None, ("1.2.3.4", 1234))
+        meta1 = Meta(app, self.get_settings())
         gevent.spawn(meta1.call_method, Call("second_method"), second_method)
         gevent.sleep(0)
 
@@ -212,7 +212,7 @@ class TestAPIMeta(XXXTestBase):
 class TestDebugAPI(XXXTestBase):
     def test_normal_call(self):
         app = DirtApp("test_normal_call", self.get_settings())
-        meta = APIMeta(app, Mock(), Mock())
+        meta = APIMeta(app, app.settings)
         call = Call("debug.status", (), {}, {})
         method = meta.lookup_method(call)
         result = meta.call_method(call, method)
@@ -220,7 +220,7 @@ class TestDebugAPI(XXXTestBase):
 
     def test_error_call(self):
         app = DirtApp("test_normal_call", self.get_settings())
-        meta = APIMeta(app, Mock(), Mock())
+        meta = APIMeta(app, app.settings)
         call = Call("debug.ping", (), {"raise_error": True}, {})
         method = meta.lookup_method(call)
         try:
