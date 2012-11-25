@@ -1,4 +1,4 @@
-from ..iter import isiter
+from ...iter import isiter
 
 from .common import Call, expected, is_expected
 from .connection import ConnectionError, MessageError, ServerConnection
@@ -61,10 +61,7 @@ class ConnectionHandler(object):
     def _handle_call(self, call):
         """ Handles one ``call`` message. """
         try:
-            method = self.call_handler.lookup_method(call)
-            if method is None:
-                raise expected(ValueError("invalid method: %r" %(call.name, )))
-            result = self.call_handler.call_method(call, method)
+            result = self.call_handler.execute(call)
             if not call.want_response:
                 return
             if isiter(result):

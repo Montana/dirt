@@ -9,7 +9,7 @@ from itertools import chain
 
 import bson
 
-from ..strutil import truncate
+from ...strutil import truncate
 from .common import expected
 
 log = logging.getLogger(__name__)

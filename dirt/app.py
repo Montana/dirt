@@ -6,15 +6,16 @@ import inspect
 import functools
 
 from gevent import Timeout
-from gevent.server import StreamServer
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
 from . import dt
 from .iter import isiter
-from .rpc.common import is_expected
-from .rpc.connection import SocketError, ConnectionPool
-from .rpc.server import ConnectionHandler
+from .rpc.dirt_rpc import DirtRPCServer
+
+#from .rpc.common import is_expected
+#from .rpc.connection import SocketError, ConnectionPool
+#from .rpc.server import ConnectionHandler
 
 log = logging.getLogger(__name__)
 
@@ -88,12 +89,9 @@ class DebugAPI(object):
             "api_calls": api_calls,
         }
 
-    def pool_status(self):
+    def connection_status(self):
         """ Returns a description of all the active connection pools. """
-        return [
-            pool.summarize()
-            for pool in ConnectionPool.active_pools.values()
-        ]
+        return rpc.status()
 
 
 class APIMeta(object):
@@ -155,10 +153,8 @@ class APIMeta(object):
 
     _call_semaphore = None
 
-    def __init__(self, app, socket, address):
+    def __init__(self, app):
         self.app = app
-        self.socket = socket
-        self.address = address
 
     def _get_call_semaphore(self, call):
         if self.call_is_debug(call):
@@ -180,23 +176,14 @@ class APIMeta(object):
     def get_debug_api(self):
         return self.app.get_debug_api(self)
 
-    def get_api(self):
-        # Note: this is to ensure backwards compatibility and should eventually
-        # be removed.
-        try:
-            self._use_old_get_api
-        except AttributeError:
-            arg_spec = inspect.getargspec(self.app.get_api)
-            self._use_old_get_api = (len(arg_spec.args) != 3)
-            if self._use_old_get_api:
-                log.critical("The ``get_api()`` method of %r needs updating "
-                             "to accept ``socket`` and ``address`` arguments: "
-                             "``get_api(self, socket, address)``", self.app)
-        if self._use_old_get_api:
-            api = self.app.get_api()
-        else:
-            api = self.app.get_api(self.socket, self.address)
-        return api
+    def get_api(self, call_info):
+        return  self.app.get_api(call_info)
+
+    def execute(self, call):
+        method = self.lookup_method(call)
+        if method is None:
+            raise expected(ValueError("invalid method: %r" %(call.name, )))
+        return self.call_method(call, method)
 
     def lookup_method(self, call):
         """ Looks up a method for an RPC call (part of ``ConnectionHandler``'s
@@ -209,7 +196,7 @@ class APIMeta(object):
             name = name.split(".", 1)[1]
             api = self.get_debug_api()
         else:
-            api = self.get_api()
+            api = self.get_api(call)
 
         if name.startswith("_"):
             return None
@@ -243,7 +230,7 @@ class APIMeta(object):
                         self.max_concurrent_calls, self.address, call.name)
 
         call_semaphore.acquire()
-        active_call_tuple = (self.address, call)
+        active_call_tuple = (call) # removed self.address
         def finished_callback(is_error):
             self.active_calls.remove(active_call_tuple)
             self.call_stats["completed"] += 1
@@ -366,23 +353,12 @@ class PIDFile(object):
 class DirtApp(object):
     api_meta = APIMeta
     debug_api_class = DebugAPI
+    rpc_class = DirtRPCServer        # set/lookup via settings?
 
     def __init__(self, app_name, settings):
         self.app_name = app_name
         self.settings = settings
-
-    def accept_connection(self, socket, address):
-        log_prefix = "connection from %s:%s: " %address
-        log.debug(log_prefix + "accepting")
-
-        handler = ConnectionHandler(self.api_meta(self, socket, address))
-        try:
-            handler.accept(socket, address)
-        except Exception, e:
-            if isinstance(e, SocketError) or is_expected(e):
-                log.info(log_prefix + "ignoring expected exception %r", e)
-            else:
-                log.exception(log_prefix + "unexpected exception:")
+        self.edge = DirtApp.api_meta(self)
 
     def run(self):
         try:
@@ -391,16 +367,15 @@ class DirtApp(object):
                 return result
             self.setup()
             self.start()
-            self.serve_forever()
+            self.serve()
         except:
             log.exception("error encountered while trying to run %r:",
                           self.app_name)
             return 1
 
-    def serve_forever(self):
+    def serve(self):
         log.info("binding to %s:%s" %self.settings.bind)
-        self.server = StreamServer(self.settings.bind, self.accept_connection)
-        self.server.serve_forever()
+        self.server = DirtApp.rpc_class(self.settings.bind, self.edge)
 
     def pidfile_path(self):
         pidfile_path_tmpl = getattr(self.settings, "DIRT_APP_PIDFILE", None)
@@ -450,7 +425,7 @@ class DirtApp(object):
 
             Subclasses can implement this method without calling super(). """
 
-    def get_api(self, socket, address):
+    def get_api(self, call_info):
         raise Exception("Subclasses must implement the 'get_api' method.")
 
     def get_debug_api(self, meta):
@@ -517,12 +492,12 @@ def runloop(log, sleep=time.sleep):
             except Exception, e:
                 sleep_time = get_sleep_time(start_time)
                 log_suffix = "restarting in %s..." %(sleep_time, )
-                if is_expected(e):
-                    log.info("%r raised expected exception %r; %s",
-                             func, e, log_suffix)
-                else:
-                    log.exception("%r raised unexpected exception; %s",
-                                  func, log_suffix)
+                #if is_expected(e):
+                #    log.info("%r raised expected exception %r; %s",
+                #             func, e, log_suffix)
+                #else:
+                log.exception("%r raised unexpected exception; %s",
+                              func, log_suffix)
             sleep(sleep_time)
 
     def runloop_return(f):

@@ -10,7 +10,7 @@ class FirstAPI(object):
         return "pong"
 
 class FirstApp(DirtApp):
-    def get_api(self, socket, address):
+    def get_api(self, call_info):
         return FirstAPI()
 
     def start(self):
@@ -19,7 +19,7 @@ class FirstApp(DirtApp):
 
 class SecondApp(DirtApp):
     @runloop(log)
-    def serve_forever(self):
+    def serve(self):
         log.info("Trying to ping FirstApp...")
         api = self.settings.get_api("first")
         while True:

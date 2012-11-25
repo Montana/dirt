@@ -8,7 +8,7 @@ from types import ModuleType
 from gevent import Timeout
 from setproctitle import setproctitle
 
-from .rpc.client import SimpleClient
+from .rpc.dirtrpc.client import SimpleClient
 from .gevent_ import fork
 from .log import setup_logging, ColoredFormatter
 
