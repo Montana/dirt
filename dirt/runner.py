@@ -97,9 +97,6 @@ class DirtRunner(object):
         print "    " + "\n    ".join(self.list_apps())
 
     def handle_argv(self, argv):
-        if argv is None:
-            argv = sys.argv
-
         if "-h" in argv or "--help" in argv:
             self.usage(argv)
             return 0
@@ -126,6 +123,9 @@ class DirtRunner(object):
         return None
 
     def run_many(self, argv=None):
+        if argv is None:
+            argv = sys.argv
+
         ret = self.handle_argv(argv)
         if ret is not None:
             return ret
