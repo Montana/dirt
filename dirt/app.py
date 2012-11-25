@@ -10,7 +10,7 @@ from gevent.server import StreamServer
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
-import .dt
+from . import dt
 from .iter import isiter
 from .rpc.common import is_expected
 from .rpc.connection import SocketError, ConnectionPool
