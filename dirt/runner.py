@@ -96,7 +96,7 @@ class DirtRunner(object):
         print "available apps:"
         print "    " + "\n    ".join(self.list_apps())
 
-    def run_many(self, argv=None):
+    def handle_argv(self, argv):
         if argv is None:
             argv = sys.argv
 
@@ -122,6 +122,13 @@ class DirtRunner(object):
         if len(argv) < 2:
             self.usage(argv)
             return 1
+
+        return None
+
+    def run_many(self, argv=None):
+        ret = self.handle_argv(argv)
+        if ret is not None:
+            return ret
 
         class RUN_SETTINGS:
             log_to_hub = False
