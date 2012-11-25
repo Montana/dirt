@@ -9,9 +9,9 @@ from gevent import Timeout
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
-from . import dt
-from .iter import isiter
-from .rpc.dirt_rpc import DirtRPCServer
+from dirt import dt
+from dirt.iter import isiter
+from dirt.rpc.dirt_rpc import DirtRPCServer
 
 #from .rpc.common import is_expected
 #from .rpc.connection import SocketError, ConnectionPool
@@ -77,7 +77,7 @@ class DebugAPI(object):
         """ Returns some general status information. """
         api_calls = dict(self.meta.call_stats)
         num_pending = len([
-            call for (_, call) in self.meta.active_calls
+            call for call in self.meta.active_calls
             if not call.meta.get("time_in_queue")
         ])
         api_calls.update({
@@ -91,7 +91,7 @@ class DebugAPI(object):
 
     def connection_status(self):
         """ Returns a description of all the active connection pools. """
-        return rpc.status()
+        return rpc.status() # XXX: ``rpc`` not defined
 
 
 class APIMeta(object):
@@ -152,7 +152,7 @@ class APIMeta(object):
     }
 
     _call_semaphore = None
-    rpc_class = DirtRPCServer        # set/lookup via settings?
+    rpc_class = DirtRPCServer        # XXX: set/lookup via settings?
 
     def __init__(self, app, settings):
         self.app = app
@@ -232,9 +232,8 @@ class APIMeta(object):
                         self.max_concurrent_calls, self.address, call.name)
 
         call_semaphore.acquire()
-        active_call_tuple = (call) # removed self.address
         def finished_callback(is_error):
-            self.active_calls.remove(active_call_tuple)
+            self.active_calls.remove(call)
             self.call_stats["completed"] += 1
             if is_error:
                 self.call_stats["errors"] += 1
@@ -249,7 +248,7 @@ class APIMeta(object):
                 timeout.start()
             time_in_queue = time.time() - call.meta.get("time_received", 0)
             call.meta["time_in_queue"] = time_in_queue
-            self.active_calls.append(active_call_tuple)
+            self.active_calls.append(call)
             result = method(*call.args, **call.kwargs)
             if isiter(result):
                 result = self.wrap_generator_result(call, result,
