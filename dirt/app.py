@@ -491,10 +491,10 @@ def runloop(log, sleep=time.sleep):
             except GreenletExit:
                 log.debug("%r stopping due to GreenletExit", func)
                 raise
-            except Exception, e:
+            except Exception:
                 sleep_time = get_sleep_time(start_time)
                 log_suffix = "restarting in %s..." %(sleep_time, )
-                #if is_expected(e):
+                #if is_expected(e): # XXX how do we deal with this?
                 #    log.info("%r raised expected exception %r; %s",
                 #             func, e, log_suffix)
                 #else:
