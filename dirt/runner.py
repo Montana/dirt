@@ -8,9 +8,9 @@ from types import ModuleType
 from gevent import Timeout
 from setproctitle import setproctitle
 
-from .rpc.dirtrpc.client import SimpleClient
-from .gevent_ import fork
-from .log import setup_logging, ColoredFormatter
+from dirt.rpc.dirtrpc.client import SimpleClient
+from dirt.gevent_ import fork
+from dirt.log import setup_logging, ColoredFormatter
 
 
 log = logging.getLogger(__name__)
