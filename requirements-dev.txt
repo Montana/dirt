@@ -1,0 +1,7 @@
+# Required to run tests
+nose==1.2.1
+mock==0.7.0b3
+
+# Optional but handy
+ipython
+pdbpp
