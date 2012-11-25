@@ -7,14 +7,52 @@ import gevent
 from gevent.event import Event
 from gevent import GreenletExit
 
+
 from ..rpc.common import expected, Call as _Call
 from ..testing import (
-    assert_contains, parameterized, LumTest, assert_logged,
+    assert_contains, parameterized, assert_logged,
+    setup_logging, teardown_logging,
 )
 
 from ..app import runloop, APIMeta, PIDFile, DirtApp
 
 log = logging.getLogger(__name__)
+
+
+class XXXTestBase(object):
+    # NOTE: This should probably be moved around or something!
+
+    # Subclasses can specify a ``settings`` dict, which will be merged with the
+    # "SETTINGS" object returned by ``get_settings``
+    settings = {}
+
+    def setup(self):
+        self._settings = None
+        setup_logging()
+
+    def setUp(self):
+        super(XXXTestBase, self).setUp()
+        self.setup()
+
+    def teardown(self):
+        teardown_logging()
+
+    def tearDown(self):
+        super(XXXTestBase, self).tearDown()
+        self.teardown()
+
+    @classmethod
+    def build_settings(self):
+        class MOCK_SETTINGS:
+            get_api = Mock()
+            engine = None
+        MOCK_SETTINGS.__dict__.update(self.settings)
+        return MOCK_SETTINGS
+
+    def get_settings(self):
+        if self._settings is None:
+            self._settings = self.build_settings()
+        return self._settings
 
 
 class MockApp(object):
@@ -87,7 +125,7 @@ class Call(_Call):
         super(Call, self).__init__(name, args or (), kwargs or {}, flags or [])
 
 
-class TestAPIMeta(LumTest):
+class TestAPIMeta(XXXTestBase):
     def Meta(self, **meta_dict):
         return type("Meta", (APIMeta, ), meta_dict)
 
@@ -171,7 +209,7 @@ class TestAPIMeta(LumTest):
         self.assert_meta_clean(meta1)
 
 
-class TestDebugAPI(LumTest):
+class TestDebugAPI(XXXTestBase):
     def test_normal_call(self):
         app = DirtApp("test_normal_call", self.get_settings())
         meta = APIMeta(app, Mock(), Mock())
