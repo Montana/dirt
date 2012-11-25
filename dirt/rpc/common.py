@@ -1,6 +1,6 @@
 import time
 
-from ...strutil import to_str
+from ..strutil import to_str
 
 class Call(object):
     """ Stores the data and options for one RPC call. """

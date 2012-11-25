@@ -1,6 +1,6 @@
 from ...iter import isiter
 
-from .common import Call, expected, is_expected
+from dirt.rpc.common import Call, expected, is_expected
 from .connection import ConnectionError, MessageError, ServerConnection
 
 class ConnectionHandler(object):

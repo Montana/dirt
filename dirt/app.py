@@ -13,12 +13,7 @@ from . import dt
 from .iter import isiter
 from .rpc.dirt_rpc import DirtRPCServer
 
-#from .rpc.common import is_expected
-#from .rpc.connection import SocketError, ConnectionPool
-#from .rpc.server import ConnectionHandler
-
 log = logging.getLogger(__name__)
-
 
 class DebugAPI(object):
     """ Service debugging API. """
@@ -282,7 +277,7 @@ class APIMeta(object):
         return f
 
     def serve(self):
-        self.rpc_class(self.settings.bind, self)
+        self.rpc_class(self, self.settings)
 
 class PIDFile(object):
     def __init__(self, path):
@@ -495,10 +490,6 @@ def runloop(log, sleep=time.sleep):
             except Exception, e:
                 sleep_time = get_sleep_time(start_time)
                 log_suffix = "restarting in %s..." %(sleep_time, )
-                #if is_expected(e):
-                #    log.info("%r raised expected exception %r; %s",
-                #             func, e, log_suffix)
-                #else:
                 log.exception("%r raised unexpected exception; %s",
                               func, log_suffix)
             sleep(sleep_time)
