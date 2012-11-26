@@ -25,6 +25,7 @@ class TestConnectionHandler(object):
         self.cxn = Mock()
         self.edge = APIEdge(MockApp(self.api), None)
         self.handler = ConnectionHandler(self.edge.execute)
+        self.handler.client = ("mock_peer", 1234)
         self.handler.cxn = self.cxn
 
     def set_next_message(self, type, data):

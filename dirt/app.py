@@ -9,7 +9,6 @@ from gevent import Timeout
 from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
-from dirt import dt
 from dirt import rpc
 from dirt.iter import isiter
 from dirt.rpc.common import Call
@@ -20,7 +19,7 @@ log = logging.getLogger(__name__)
 class DebugAPI(object):
     """ Service debugging API. """
 
-    TIME_STARTED = dt.utcnow()
+    TIME_STARTED = time.time()
 
     def __init__(self, edge, call):
         self.edge = edge
@@ -88,7 +87,7 @@ class DebugAPI(object):
             "active": len(self.edge.active_calls) - num_pending,
         })
         return {
-            "uptime": str(dt.utcnow() - self.TIME_STARTED),
+            "uptime": str(time.time() - self.TIME_STARTED),
             "api_calls": api_calls,
         }
 
