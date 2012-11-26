@@ -96,6 +96,26 @@ class DirtRunner(object):
         print "available apps:"
         print "    " + "\n    ".join(self.list_apps())
 
+    def parse_argv(self, argv):
+        if not argv:
+            raise ValueError('No args passed in')
+
+        class CountApps(object):
+            counter = 0
+            def __call__(self, arg):
+                if not arg.startswith('-'):
+                    self.counter += 1
+                return self.counter
+
+        argv_groups = [
+            list(group[1])
+            for group in itertools.groupby(argv, CountApps())]
+
+        if argv_groups:
+            return argv_groups[0], argv_groups[1:]
+        else:
+            return [], []
+
     def handle_argv(self, argv):
         if "-h" in argv or "--help" in argv:
             self.usage(argv)

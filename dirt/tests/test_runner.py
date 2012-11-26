@@ -1,5 +1,5 @@
 from mock import Mock
-from nose.tools import eq_
+from nose.tools import eq_, raises
 
 from ..runner import DirtRunner
 
@@ -7,6 +7,25 @@ from ..runner import DirtRunner
 class TestDirtRunner(object):
     def setup(self):
         self.runner = DirtRunner(Mock())
+
+    @raises(ValueError)
+    def test_parse_argv_with_nothing_raises_value_error(self):
+        argv, app_argvs = self.runner.parse_argv([])
+
+    def test_parse_argv_with_only_progname_returns_no_args(self):
+        argv, app_argvs = self.runner.parse_argv(['progname'])
+        eq_(['progname'], argv)
+
+    def test_parse_argv_with_dash_args_returns_args(self):
+        argv, app_argvs = self.runner.parse_argv(
+            ['progname', '--start', 'app', '-s'])
+        eq_(['progname', '--start'], argv)
+        eq_([['app', '-s']], app_argvs)
+
+    def test_parse_argv_with_app_returns_app_with_no_args(self):
+        argv, app_argvs = self.runner.parse_argv(['progname', 'app'])
+        eq_(['progname'], argv)
+        eq_([['app']], app_argvs)
 
     def test_handle_argv_with_h_calls_usage_and_returns_0(self):
         self.runner.usage = Mock()
