@@ -346,10 +346,10 @@ class DirtApp(object):
     }
     api_handlers = {}
 
-    def __init__(self, app_name, app_argv, settings):
+    def __init__(self, app_name, settings, app_argv):
         self.app_name = app_name
-        self.app_argv = app_argv
         self.settings = settings
+        self.app_argv = app_argv
         self.api_handlers = self._get_api_handlers()
         self.edge = self.edge_class(self, self.settings)
 
