@@ -1,6 +1,6 @@
 Unless stated otherwise, license to use all source code, documentation, and
 assets in this repository is granted under the terms of the 2-clause BSD
-license, belowis granted under the terms of the 2-clause BSD license, below
+license, below:
 
 Unless stated otherwise, all source code, documentation, and assets are
 Copyright (c) 2012, David Wolever.
