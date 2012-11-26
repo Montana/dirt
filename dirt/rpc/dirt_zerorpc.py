@@ -8,7 +8,7 @@ class DirtZeroRPCServer(zerorpc.Server):
 
     def __init__(self, edge, settings):
         self.edge = edge
-        zerorpc.Server.__init__(self, methods=edge.get_api(None)) #FIXME
+        zerorpc.Server.__init__(self)
         binding = "tcp://%s:%s" % settings.bind
         self.bind(binding)
         self.run()
