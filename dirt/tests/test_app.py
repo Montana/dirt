@@ -211,7 +211,7 @@ class TestAPIMeta(XXXTestBase):
 
 class TestDebugAPI(XXXTestBase):
     def test_normal_call(self):
-        app = DirtApp("test_normal_call", self.get_settings())
+        app = DirtApp("test_normal_call", [], self.get_settings())
         meta = APIMeta(app, app.settings)
         call = Call("debug.status", (), {}, {})
         method = meta.lookup_method(call)
@@ -219,7 +219,7 @@ class TestDebugAPI(XXXTestBase):
         assert_contains(result, "uptime")
 
     def test_error_call(self):
-        app = DirtApp("test_normal_call", self.get_settings())
+        app = DirtApp("test_normal_call", [], self.get_settings())
         meta = APIMeta(app, app.settings)
         call = Call("debug.ping", (), {"raise_error": True}, {})
         method = meta.lookup_method(call)

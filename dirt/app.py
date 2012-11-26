@@ -350,8 +350,9 @@ class DirtApp(object):
     edge_class = APIMeta
     debug_api_class = DebugAPI
 
-    def __init__(self, app_name, settings):
+    def __init__(self, app_name, app_argv, settings):
         self.app_name = app_name
+        self.app_argv = app_argv
         self.settings = settings
         self.edge = self.edge_class(self, self.settings)
 
