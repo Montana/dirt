@@ -142,8 +142,8 @@ class DirtRunner(object):
         if argv is None:
             argv = sys.argv
 
-        argv, app_argvs = self.parse_argv(argv)
-        ret = self.handle_argv(argv)
+        run_argv, app_argvs = self.parse_argv(argv)
+        ret = self.handle_argv(run_argv)
         if ret is not None:
             return ret
 
@@ -157,13 +157,17 @@ class DirtRunner(object):
         setup_logging("run", logging_settings)
 
         # Check to see if we're running a script
-        if "/" in argv[1]:
-            argv[0] = "%s %s" %(argv[0], argv[1])
-            script_path = argv.pop(1)
+        if "/" in app_argvs[0][0]:
+            # XXX: Hack. Not sure how we want to rewrite sys.argv in the case
+            # of running scripts (which don't fork, so can't have multiple
+            # things running, so the argv parsing we did above is partially
+            # moot)
+            argv[0] = "%s %s" % (run_argv[0], app_argvs[0][0])
+            script_path = argv.pop(len(run_argv))
             return self.run_script(script_path)
 
         app_names_settings = [
-            (app_argv[0], app_argv[1:], self.get_app_settings(app_name))
+            (app_argv[0], app_argv[1:], self.get_app_settings(app_argv[0]))
             for app_argv in app_argvs
         ]
 
