@@ -10,8 +10,7 @@ import bson
 from gevent import socket
 
 from dirt.strutil import truncate
-
-from .common import expected
+from dirt.rpc.common import expected
 
 log = logging.getLogger(__name__)
 

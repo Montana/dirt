@@ -8,7 +8,7 @@ from gevent.event import Event
 from gevent import GreenletExit
 
 
-from dirt.rpc.dirtrpc.common import expected, Call
+from dirt.rpc.common import expected, Call
 from dirt.testing import (
     assert_contains, parameterized, assert_logged,
     setup_logging, teardown_logging,
@@ -204,14 +204,14 @@ class TestAPIEdge(XXXTestBase):
 
 class TestDebugAPI(XXXTestBase):
     def test_normal_call(self):
-        app = DirtApp("test_normal_call", self.get_settings())
+        app = DirtApp("test_normal_call", [], self.get_settings())
         edge = APIEdge(app, app.settings)
         call = Call("debug.status", (), {}, {})
         result = edge.execute(call)
         assert_contains(result, "uptime")
 
     def test_error_call(self):
-        app = DirtApp("test_normal_call", self.get_settings())
+        app = DirtApp("test_normal_call", [], self.get_settings())
         edge = APIEdge(app, app.settings)
         call = Call("debug.ping", (), {"raise_error": True}, {})
         try:

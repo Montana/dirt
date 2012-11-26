@@ -1,6 +1,6 @@
 import time
 
-from ...strutil import to_str
+from ..strutil import to_str
 
 class Call(object):
     """ Stores the data and options for one RPC call. """
@@ -17,7 +17,6 @@ class Call(object):
         args = args or ()
         kwargs = kwargs or {}
         flags = flags or {}
-
         for flag in flags:
             if flag not in self.default_flags:
                 raise ValueError("invalid flag: %r" %(flag, ))
@@ -26,7 +25,7 @@ class Call(object):
         self.flags = flags
         self.name = name
         self.args = args
-        self.kwargs = dict((to_str(k), v) for (k, v) in kwargs.items())
+        self.kwargs = dict((to_str(key), val) for (key, val) in kwargs.items())
         # Some debug-related information about this call
         self.meta = {
             # The time the call was first received.

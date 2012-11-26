@@ -96,10 +96,27 @@ class DirtRunner(object):
         print "available apps:"
         print "    " + "\n    ".join(self.list_apps())
 
-    def run_many(self, argv=None):
-        if argv is None:
-            argv = sys.argv
+    def parse_argv(self, argv):
+        if not argv:
+            raise ValueError('No args passed in')
 
+        class CountApps(object):
+            counter = 0
+            def __call__(self, arg):
+                if not arg.startswith('-'):
+                    self.counter += 1
+                return self.counter
+
+        argv_groups = [
+            list(group[1])
+            for group in itertools.groupby(argv, CountApps())]
+
+        if argv_groups:
+            return argv_groups[0], argv_groups[1:]
+        else:
+            return [], []
+
+    def handle_argv(self, argv):
         if "-h" in argv or "--help" in argv:
             self.usage(argv)
             return 0
@@ -123,6 +140,17 @@ class DirtRunner(object):
             self.usage(argv)
             return 1
 
+        return None
+
+    def run_many(self, argv=None):
+        if argv is None:
+            argv = sys.argv
+
+        argv, app_argvs = self.parse_argv(argv)
+        ret = self.handle_argv(argv)
+        if ret is not None:
+            return ret
+
         class RUN_SETTINGS:
             log_to_hub = False
         logging_settings = SettingsWrapper(RUN_SETTINGS, self.settings)
@@ -135,8 +163,8 @@ class DirtRunner(object):
             return self.run_script(script_path)
 
         app_names_settings = [
-            (app_name, self.get_app_settings(app_name))
-            for app_name in argv[1:]
+            (app_argv[0], app_argv[1:], self.get_app_settings(app_name))
+            for app_argv in app_argvs
         ]
 
         self._get_api_force_no_mock.update(argv[1:])
@@ -148,7 +176,7 @@ class DirtRunner(object):
         pid = -1
         try:
             app_pids = {}
-            for app_name, app_settings in app_names_settings:
+            for app_name, app_argv, app_settings in app_names_settings:
                 app_color = next(app_colors)
                 pid = fork()
                 if pid > 0:
@@ -156,7 +184,7 @@ class DirtRunner(object):
                 else:
                     os.setsid()
                     ColoredFormatter.app_color = app_color
-                    return self.run_app(app_name, app_settings)
+                    return self.run_app(app_name, app_argv, app_settings)
 
             while app_pids:
                 try:
@@ -206,16 +234,17 @@ class DirtRunner(object):
         execfile(script_path)
         return 0
 
-    def run_app(self, app_name, app_settings):
+    def run_app(self, app_name, app_argv, app_settings):
         app_settings.get_api = self.get_api_factory()
         setup_logging(app_name, app_settings)
         use_reloader = getattr(app_settings, "USE_RELOADER", False)
         if use_reloader and not app_settings.stop_app:
             from .reloader import run_with_reloader
             setproctitle("%s-reloader" %(app_name, ))
-            return run_with_reloader(lambda: self._run(app_name, app_settings))
+            return run_with_reloader(
+                lambda: self._run(app_name, app_argv, app_settings))
         else:
-            return self._run(app_name, app_settings)
+            return self._run(app_name, app_argv, app_settings)
 
     def setup_blocking_detector(self, app_settings):
         timeout = getattr(app_settings, "BLOCKING_DETECTOR_TIMEOUT", None)
@@ -226,11 +255,11 @@ class DirtRunner(object):
         raise_exc = getattr(app_settings, "BLOCKING_DETECTOR_RAISE_EXC", False)
         gevent.spawn(BlockingDetector(timeout=timeout, raise_exc=raise_exc))
 
-    def _run(self, app_name, app_settings):
+    def _run(self, app_name, app_argv, app_settings):
         setproctitle(app_name)
         self.setup_blocking_detector(app_settings)
         app_class = import_class(app_settings.app_class)
-        app = app_class(app_name, app_settings)
+        app = app_class(app_name, app_argv, app_settings)
         return app.run()
 
     def api_is_alive(address):

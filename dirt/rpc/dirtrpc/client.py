@@ -1,6 +1,6 @@
 import logging
 
-from .common import Call
+from dirt.rpc.common import Call
 from .connection import ConnectionError, MessageError, ConnectionPool
 
 log = logging.getLogger(__name__)

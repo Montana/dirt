@@ -3,16 +3,16 @@ import logging
 from gevent.server import StreamServer
 from .dirtrpc.server import ConnectionHandler
 from .dirtrpc.connection import SocketError
-from .dirtrpc.common import is_expected
+from dirt.rpc.common import is_expected
 
 log = logging.getLogger(__name__)
 
 class DirtRPCServer(object):
 
-    def __init__(self, binding, edge):
+    def __init__(self, edge, settings):
 
         self.edge = edge
-        self.server = StreamServer(binding, self.accept_connection)
+        self.server = StreamServer(settings.bind, self.accept_connection)
         self.server.serve_forever()
 
     def accept_connection(self, socket, address):

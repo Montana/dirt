@@ -11,18 +11,10 @@ from gevent import GreenletExit
 
 from dirt import dt
 from dirt.iter import isiter
-from dirt.rpc.dirt_rpc import DirtRPCServer
-from dirt.rpc.dirtrpc.common import Call
-
-#from .rpc.common import is_expected
-#from .rpc.connection import SocketError, ConnectionPool
-#from .rpc.server import ConnectionHandler
+from dirt.rpc.common import Call
 
 log = logging.getLogger(__name__)
 
-__all__ = [
-    "DebugAPI", "APIEdge", "DirtApp", "runloop",
-]
 
 class DebugAPI(object):
     """ Service debugging API. """
@@ -161,7 +153,6 @@ class APIEdge(object):
     }
 
     _call_semaphore = None
-    rpc_class = DirtRPCServer        # XXX: set/lookup via settings?
 
     def __init__(self, app, settings):
         self.app = app
@@ -274,7 +265,7 @@ class APIEdge(object):
         return f
 
     def serve(self):
-        self.rpc_class(self.settings.bind, self)
+        self.settings.rpc_class(self, self.settings)
 
 class PIDFile(object):
     def __init__(self, path):
@@ -355,8 +346,9 @@ class DirtApp(object):
     }
     api_handlers = {}
 
-    def __init__(self, app_name, settings):
+    def __init__(self, app_name, app_argv, settings):
         self.app_name = app_name
+        self.app_argv = app_argv
         self.settings = settings
         self.api_handlers = self._get_api_handlers()
         self.edge = self.edge_class(self, self.settings)
@@ -499,10 +491,7 @@ def runloop(log, sleep=time.sleep):
             except Exception:
                 sleep_time = get_sleep_time(start_time)
                 log_suffix = "restarting in %s..." %(sleep_time, )
-                #if is_expected(e): # XXX how do we deal with this?
-                #    log.info("%r raised expected exception %r; %s",
-                #             func, e, log_suffix)
-                #else:
+
                 log.exception("%r raised unexpected exception; %s",
                               func, log_suffix)
             sleep(sleep_time)
