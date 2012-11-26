@@ -9,9 +9,9 @@ from setproctitle import setproctitle
 
 from dirt.rpc.common import RPCClientProxy
 from dirt.log import setup_logging, ColoredFormatter
-from dirt.imp_ import instance_or_import
-from dirt.gevent_ import fork
 from dirt import rpc
+from dirt.misc.imp_ import instance_or_import
+from dirt.misc.gevent_ import fork
 
 log = logging.getLogger(__name__)
 

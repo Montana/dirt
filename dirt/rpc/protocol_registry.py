@@ -1,4 +1,4 @@
-from dirt.imp_ import import_
+from dirt.misc.imp_ import import_
 
 __all__ = [
     "ProtocolRegistry", "protocol_registry", "get_server_cls",

@@ -7,7 +7,7 @@ import logging
 from Queue import Queue
 from itertools import chain
 
-from .gevent_ import fork
+from dirt.misc.gevent_ import fork
 
 log = logging.getLogger(__name__)
 

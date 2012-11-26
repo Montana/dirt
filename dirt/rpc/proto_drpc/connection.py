@@ -9,8 +9,8 @@ from itertools import chain
 import bson
 from gevent import socket
 
-from dirt.strutil import truncate
 from dirt.rpc.common import expected
+from dirt.misc.strutil import truncate
 
 log = logging.getLogger(__name__)
 

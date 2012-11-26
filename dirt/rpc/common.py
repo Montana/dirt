@@ -1,7 +1,7 @@
 import time
 from urlparse import urlparse
 
-from ..strutil import to_str
+from dirt.misc.strutil import to_str
 
 def expected(exception):
     """ Mark an exception as being "expected". Expected exceptions will not

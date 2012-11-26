@@ -2,8 +2,8 @@ import logging
 
 from gevent.server import StreamServer
 
-from dirt.iter import isiter
 from dirt.rpc.common import Call, is_expected, ServerBase
+from dirt.misc.iter import isiter
 
 from .connection import (
     ConnectionError, MessageError, ServerConnection, SocketError,

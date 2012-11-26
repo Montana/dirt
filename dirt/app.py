@@ -10,8 +10,8 @@ from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
 from dirt import rpc
-from dirt.iter import isiter
 from dirt.rpc.common import Call
+from dirt.misc.iter import isiter
 
 log = logging.getLogger(__name__)
 
