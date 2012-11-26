@@ -11,7 +11,7 @@ class FirstAPI(object):
         return "pong"
 
 class FirstApp(DirtApp):
-    def get_api(self, call_info):
+    def get_api(self, edge, call):
         return FirstAPI()
 
     def start(self):
@@ -24,5 +24,5 @@ class SecondApp(DirtApp):
         log.info("Trying to ping FirstApp...")
         api = self.settings.get_api("first")
         while True:
-            time.sleep(1)
             log.info("ping: %r", api.ping())
+            time.sleep(1)

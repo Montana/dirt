@@ -12,6 +12,7 @@ from gevent import GreenletExit
 from dirt import dt
 from dirt.iter import isiter
 from dirt.rpc.dirt_rpc import DirtRPCServer
+from dirt.rpc.dirtrpc.common import Call
 
 #from .rpc.common import is_expected
 #from .rpc.connection import SocketError, ConnectionPool
@@ -19,14 +20,19 @@ from dirt.rpc.dirt_rpc import DirtRPCServer
 
 log = logging.getLogger(__name__)
 
+__all__ = [
+    "DebugAPI", "APIEdge", "DirtApp", "runloop",
+]
 
 class DebugAPI(object):
     """ Service debugging API. """
 
     TIME_STARTED = dt.utcnow()
 
-    def __init__(self, meta):
-        self.meta = meta
+    def __init__(self, edge, call):
+        self.edge = edge
+        self.call = call
+        self.app = edge.app
 
     def _list_methods(self, obj):
         """ Lists the methods available on ``obj``. """
@@ -55,18 +61,22 @@ class DebugAPI(object):
             raise Exception(result)
         return result
 
-    def api_methods(self):
+    def list_methods(self, prefix=""):
         """ Returns a list of the methods available on the API. """
-        api_methods = self._list_methods(self.meta.get_api())
-        return api_methods + [APIMeta.DEBUG_CALL_PREFIX]
+        handlers = [
+            handler_prefix + "." for handler_prefix in self.app.api_handlers
+            if (
+                handler_prefix and
+                handler_prefix.startswith(prefix) and
+                handler_prefix != prefix
+            )
+        ]
+        dummy_call = Call(prefix + "._list_methods_dummy_method")
+        handler, _ = self.edge.get_call_handler(dummy_call)
+        methods = self._list_methods(handler)
+        return handlers + methods
 
-    def debug_methods(self):
-        """ Returns a list of the methods available on the debug API. """
-        methods = self._list_methods(self)
-        methods.remove("getdoc")
-        return methods
-
-    def active_calls(self):
+    def active_calls(self): # XXX re-write this
         """ Returns a description of all the currently active RPC calls. """
         return [
             ("%s:%s" %address, self._call_to_dict(call))
@@ -75,14 +85,14 @@ class DebugAPI(object):
 
     def status(self):
         """ Returns some general status information. """
-        api_calls = dict(self.meta.call_stats)
+        api_calls = dict(self.edge.call_stats)
         num_pending = len([
-            call for call in self.meta.active_calls
+            call for call in self.edge.active_calls
             if not call.meta.get("time_in_queue")
         ])
         api_calls.update({
             "pending": num_pending,
-            "active": len(self.meta.active_calls) - num_pending,
+            "active": len(self.edge.active_calls) - num_pending,
         })
         return {
             "uptime": str(dt.utcnow() - self.TIME_STARTED),
@@ -94,8 +104,8 @@ class DebugAPI(object):
         return rpc.status() # XXX: ``rpc`` not defined
 
 
-class APIMeta(object):
-    """ The ``APIMeta`` class handles the "meta" aspects of an API;
+class APIEdge(object):
+    """ The ``APIEdge`` class handles the "meta" aspects of an API;
         specificailly, looking up and calling methods.
 
         The default implementation also includes the option to set a call
@@ -117,30 +127,29 @@ class APIMeta(object):
             # Limit calls to 30 seconds with a maximum of 5 concurrent calls.
             # Additionally, catch instances of ``MyException``, and instead
             # return a tuple of ``(False, str(e))``
-            class Meta(APIMeta):
+            class APIEdge(dirt.APIEdge):
                 call_timeout = 30
                 max_concurrent_calls = 5
 
-                def call_method(self, call, method):
+                def execute(self, call):
                     try:
-                        return APIMeta.call_method(self, call, method)
+                        return APIEdge.execute(self, call)
                     catch MyException as e:
                         return (False, str(e))
 
             class MyAPI(object):
                 # The timeout will not be applied when calling ``slow_method``.
-                @Meta.no_timeout
+                @APIEdge.no_timeout
                 def slow_method(self):
                     gevent.sleep(100)
                     return 42
 
             class MyApp(DirtApp):
-                api_meta = Meta
+                edge_class = APIEdge
 
                 def get_api(self, socket, address):
                     return MyAPI()
         """
-    DEBUG_CALL_PREFIX = "debug"
 
     call_timeout = None
     max_concurrent_calls = 64
@@ -159,77 +168,61 @@ class APIMeta(object):
         self.settings = settings
 
     def _get_call_semaphore(self, call):
-        if self.call_is_debug(call):
+        if call.name.startswith("debug."): # XXX A bit of a hack
             return DummySemaphore()
-
-        try:
-            semaphore = self.app._call_semaphore
-        except AttributeError:
+        if self._call_semaphore is None:
             if self.max_concurrent_calls is None:
                 semaphore = DummySemaphore()
             else:
                 semaphore = BoundedSemaphore(self.max_concurrent_calls)
-            self.app._call_semaphore = semaphore
-        return semaphore
-
-    def call_is_debug(self, call):
-        return call.name.startswith(self.DEBUG_CALL_PREFIX + ".")
+            self._call_semaphore = semaphore
+        return self._call_semaphore
 
     def get_debug_api(self):
         return self.app.get_debug_api(self)
 
-    def get_api(self, call_info):
-        return  self.app.get_api(call_info)
+    def get_call_callable(self, call):
+        handler, method_name = self.get_call_handler(call)
+        return self.get_call_handler_method(call, handler, method_name)
+
+    def get_call_handler(self, call):
+        """ Returns a tuple of ``(handler, method_name)``, where ``handler``
+            is an object (probably an instance of an API class) which may
+            have a method ``method_name``. Mapping the ``method_name`` to
+            a concrete method is done by ``get_call_handler_method``. """
+        prefix, _, method_name = call.name.rpartition(".")
+        handler_callable = self.app.api_handlers.get(prefix, None)
+        if not handler_callable:
+            raise ValueError("no handlers registered on %r for %r"
+                             %(self.app, prefix))
+        if isinstance(handler_callable, basestring):
+            handler_callable = getattr(self.app, handler_callable)
+        return (handler_callable(self, call), method_name)
+
+    def get_call_handler_method(self, call, handler, method_name):
+        """ Returns the callable method of ``handler``, looked up using
+            ``method_name``, which should be used to handle ``call``. """
+        method = None
+        if not method_name.startswith("_"):
+            method = getattr(handler, method_name, None)
+        if method is None:
+            raise ValueError("no method %r on handler %r"
+                             %(method_name, handler))
+        return method
 
     def execute(self, call):
-        method = self.lookup_method(call)
-        if method is None:
-            raise expected(ValueError("invalid method: %r" %(call.name, ))) # XXX: expected undefined
-        return self.call_method(call, method)
-
-    def lookup_method(self, call):
-        """ Looks up a method for an RPC call (part of ``ConnectionHandler``'s
-            ``call_handler`` interface). Returns either the method (which will be
-            passed to ``call_method`` or ``None``.
-            """
-
-        name = call.name
-        if self.call_is_debug(call):
-            name = name.split(".", 1)[1]
-            api = self.get_debug_api()
-        else:
-            api = self.get_api(call)
-
-        if name.startswith("_"):
-            return None
-
-        suffix = None
-        if "." in name:
-            name, suffix = name.split(".", 1)
-
-        result = getattr(api, name, None)
-        if suffix is not None:
-            result = self.lookup_method_with_suffix(call, result, suffix)
-        return result
-
-    def lookup_method_with_suffix(self, call, method, suffix):
-        if suffix != "getdoc":
-            return None
-        return lambda: inspect.getdoc(method)
-
-    def call_method(self, call, method):
         """ Calls a method for an RPC call (part of ``ConnectionHandler``'s
             ``call_handler`` interface).
             """
+        callable = self.get_call_callable(call)
         timeout = None
         if self.call_timeout is not None:
-            timeout = Timeout(getattr(method, "_timeout", self.call_timeout))
+            timeout = Timeout(getattr(callable, "_timeout", self.call_timeout))
 
         call_semaphore = self._get_call_semaphore(call)
         if call_semaphore.locked():
-            log.warning("too many concurrent callers (%r); "
-                        "call from %r to %r will block",
-                        self.max_concurrent_calls, self.address, call.name)
+            log.warning("too many concurrent callers (%r); call %r will block",
+                        self.max_concurrent_calls, call)
 
         call_semaphore.acquire()
         def finished_callback(is_error):
@@ -249,7 +242,7 @@ class APIMeta(object):
             time_in_queue = time.time() - call.meta.get("time_received", 0)
             call.meta["time_in_queue"] = time_in_queue
             self.active_calls.append(call)
-            result = method(*call.args, **call.kwargs)
+            result = callable(*call.args, **call.kwargs)
             if isiter(result):
                 result = self.wrap_generator_result(call, result,
                                                     finished_callback)
@@ -274,7 +267,7 @@ class APIMeta(object):
 
     @classmethod
     def no_timeout(cls, f):
-        """ Decorates a function function, telling ``APIMeta`` that a timeout
+        """ Decorates a function function, telling ``APIEdge`` that a timeout
             should not be used for calls to this method (for example, because
             it returns a generator). """
         f._timeout = None
@@ -354,13 +347,28 @@ class PIDFile(object):
 
 
 class DirtApp(object):
-    edge_class = APIMeta
-    debug_api_class = DebugAPI
+    edge_class = APIEdge
+
+    api_handlers_defaults = {
+        "": "get_api",
+        "debug": DebugAPI,
+    }
+    api_handlers = {}
 
     def __init__(self, app_name, settings):
         self.app_name = app_name
         self.settings = settings
+        self.api_handlers = self._get_api_handlers()
         self.edge = self.edge_class(self, self.settings)
+
+    def _get_api_handlers(self):
+        """ Returns a dictionary of API handlers, created by merging
+            ``cls.api_handlers`` into ``cls.api_handlers_defaults``.
+            Should probably only be called from ``__init__``. """
+        cls = type(self)
+        handlers = dict(cls.api_handlers_defaults)
+        handlers.update(cls.api_handlers)
+        return handlers
 
     def run(self):
         try:
@@ -427,11 +435,8 @@ class DirtApp(object):
 
             Subclasses can implement this method without calling super(). """
 
-    def get_api(self, call_info):
+    def get_api(self, edge, call):
         raise Exception("Subclasses must implement the 'get_api' method.")
-
-    def get_debug_api(self, meta):
-        return self.debug_api_class(meta)
 
 
 def runloop(log, sleep=time.sleep):

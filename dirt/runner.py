@@ -54,7 +54,7 @@ class DirtRunner(object):
         return SettingsWrapper(app_settings, self.settings)
 
     def run_rpc_shell(self, app_name):
-        settings = self.get_app_settings(self.settings, app_name)
+        settings = self.get_app_settings(app_name)
         api = self.get_api(self.settings.__dict__, app_name, use_bind=True)
 
         # Make PyFlakes ignore the 'unused' variables

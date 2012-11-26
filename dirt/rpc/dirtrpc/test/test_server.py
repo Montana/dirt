@@ -1,13 +1,17 @@
 from nose.tools import assert_equal
 from mock import Mock
 
-from dirt.app import APIMeta
+from dirt.app import APIEdge
 from dirt.testing import parameterized
 
 from ..server import ConnectionHandler
 
 
 class MockApp(object):
+    api_handlers = {
+        "": "get_api",
+    }
+
     def __init__(self, api):
         self.api = api
 
@@ -19,7 +23,7 @@ class TestConnectionHandler(object):
     def setup(self):
         self.api = Mock()
         self.cxn = Mock()
-        self.meta = APIMeta(MockApp(self.api), None, ("1.2.3.4", 1234))
+        self.meta = APIEdge(MockApp(self.api), None)
         self.handler = ConnectionHandler(self.meta)
         self.handler.cxn = self.cxn
 

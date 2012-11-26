@@ -8,13 +8,13 @@ from gevent.event import Event
 from gevent import GreenletExit
 
 
-from dirt.rpc.common import expected, Call as _Call
+from dirt.rpc.dirtrpc.common import expected, Call
 from dirt.testing import (
     assert_contains, parameterized, assert_logged,
     setup_logging, teardown_logging,
 )
 
-from ..app import runloop, APIMeta, PIDFile, DirtApp
+from ..app import runloop, APIEdge, PIDFile, DirtApp
 
 log = logging.getLogger(__name__)
 
@@ -56,14 +56,19 @@ class XXXTestBase(object):
 
 
 class MockApp(object):
+    api_handlers = {
+        "": "get_api",
+        "debug": "mock_debug_api",
+    }
+
     def __init__(self, api=None, debug_api=None):
         self.api = api or Mock()
         self.debug_api = debug_api or Mock()
 
-    def get_api(self, socket, address):
+    def get_api(self, edge, call):
         return self.api
 
-    def get_debug_api(self, meta):
+    def mock_debug_api(self, edge, call):
         return self.debug_api
 
 
@@ -120,84 +125,73 @@ class TestRunloop(object):
         assert_raises(GotSleep, run)
 
 
-class Call(_Call):
-    def __init__(self, name, args=None, kwargs=None, flags=None):
-        super(Call, self).__init__(name, args or (), kwargs or {}, flags or [])
-
-
-class TestAPIMeta(XXXTestBase):
-    def Meta(self, **meta_dict):
-        return type("Meta", (APIMeta, ), meta_dict)
-
-    def assert_meta_clean(self, meta):
-        assert_equal(meta.app._call_semaphore.counter,
-                     meta.max_concurrent_calls)
+class TestAPIEdge(XXXTestBase):
+    def assert_edge_clean(self, edge):
+        assert_equal(edge._call_semaphore.counter,
+                     edge.max_concurrent_calls)
 
     def test_normal_call(self):
-        Meta = self.Meta()
-        meta = Meta(MockApp(), self.get_settings())
-        api = meta.app.api
+        edge = APIEdge(MockApp(), self.get_settings())
+        api = edge.app.api
         call = Call("foo")
 
-        assert_equal(meta.lookup_method(call), api.foo)
+        assert_equal(edge.get_call_handler(call), (api, "foo"))
+        assert_equal(edge.get_call_handler_method(call, api, "foo"), api.foo)
 
-        meta.call_method(call, api.foo)
+        edge.execute(call)
         assert_equal(api.foo.call_count, 1)
-        self.assert_meta_clean(meta)
+        self.assert_edge_clean(edge)
 
     def test_debug_call(self):
-        Meta = self.Meta()
-        meta = Meta(MockApp(), self.get_settings())
-        debug_api = meta.app.debug_api
+        edge = APIEdge(MockApp(), self.get_settings())
+        debug_api = edge.app.debug_api
         call = Call("debug.foo")
 
-        assert_equal(meta.lookup_method(call), debug_api.foo)
-
-        meta.call_method(call, debug_api.foo)
+        edge.execute(call)
         assert_equal(debug_api.foo.call_count, 1)
-        assert_equal(meta._call_semaphore, None)
+        assert_equal(edge._call_semaphore, None)
 
     def test_timeout(self):
-        Meta = self.Meta(call_timeout=0.0)
-        meta = Meta(MockApp(), self.get_settings())
+        edge = APIEdge(MockApp(), self.get_settings())
+        edge.call_timeout = 0.0
+        edge.app.api.foo = lambda: gevent.sleep(0.1)
 
-        foo = lambda: gevent.sleep(0.01)
         try:
-            meta.call_method(Call("foo"), foo)
+            edge.execute(Call("foo"))
             raise AssertionError("timeout not raised!")
         except gevent.Timeout:
             pass
-        self.assert_meta_clean(meta)
+        self.assert_edge_clean(edge)
 
     def test_no_timeout_decorator(self):
-        Meta = self.Meta(call_timeout=0.0)
-        meta = Meta(MockApp(), self.get_settings())
-
-        foo = meta.no_timeout(Mock())
-        meta.call_method(Call("foo"), foo)
-        assert_equal(foo.call_count, 1)
-        self.assert_meta_clean(meta)
+        app = MockApp()
+        edge = APIEdge(app, self.get_settings())
+        app.api.foo = edge.no_timeout(Mock())
+        edge.execute(Call("foo"))
+        assert_equal(app.api.foo.call_count, 1)
+        self.assert_edge_clean(edge)
 
     def test_semaphore(self):
-        Meta = self.Meta(max_concurrent_calls=1)
+        edge = APIEdge(MockApp(), self.get_settings())
+        api = edge.app.api
+        edge.max_concurrent_calls = 1
 
         in_first_method = Event()
         finish_first_method = Event()
         def first_method():
             in_first_method.set()
             finish_first_method.wait()
+        api.first_method = first_method
 
         in_second_method = Event()
         def second_method():
             in_second_method.set()
+        api.second_method = second_method
 
-        app = MockApp()
-        meta0 = Meta(app, self.get_settings())
-        gevent.spawn(meta0.call_method, Call("first_method"), first_method)
+        gevent.spawn(edge.execute, Call("first_method"))
         in_first_method.wait()
 
-        meta1 = Meta(app, self.get_settings())
-        gevent.spawn(meta1.call_method, Call("second_method"), second_method)
+        gevent.spawn(edge.execute, Call("second_method"))
         gevent.sleep(0)
 
         assert_logged("too many concurrent callers")
@@ -205,26 +199,23 @@ class TestAPIMeta(XXXTestBase):
 
         finish_first_method.set()
         in_second_method.wait()
-        self.assert_meta_clean(meta0)
-        self.assert_meta_clean(meta1)
+        self.assert_edge_clean(edge)
 
 
 class TestDebugAPI(XXXTestBase):
     def test_normal_call(self):
         app = DirtApp("test_normal_call", self.get_settings())
-        meta = APIMeta(app, app.settings)
+        edge = APIEdge(app, app.settings)
         call = Call("debug.status", (), {}, {})
-        method = meta.lookup_method(call)
-        result = meta.call_method(call, method)
+        result = edge.execute(call)
         assert_contains(result, "uptime")
 
     def test_error_call(self):
         app = DirtApp("test_normal_call", self.get_settings())
-        meta = APIMeta(app, app.settings)
+        edge = APIEdge(app, app.settings)
         call = Call("debug.ping", (), {"raise_error": True}, {})
-        method = meta.lookup_method(call)
         try:
-            meta.call_method(call, method)
+            edge.execute(call)
             raise AssertionError("exception not raised")
         except Exception as e:
             if not str(e).startswith("pong:"):

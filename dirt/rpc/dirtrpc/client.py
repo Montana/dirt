@@ -149,12 +149,7 @@ class SimpleClient(object):
 
     def _getAttributeNames(self):
         """ For tab completion with iPyhton. """
-        from ..app import APIMeta
-        if self._prefix == "":
-            return self.debug.api_methods()
-        elif self._prefix == APIMeta.DEBUG_CALL_PREFIX:
-            return self.debug_methods()
-        return []
+        return self._client.call("debug.list_methods", self._prefix)
 
     def __call__(self, *args, **kwargs):
         assert self._prefix, "can't call before a prefix has been set"
