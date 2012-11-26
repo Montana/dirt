@@ -82,7 +82,7 @@ class ConnectionHandler(object):
             flags = {
                 "want_response": type == "call",
             }
-            call = Call(data[0], data[1], data[2], flags)
+            call = Call(data[0], data[1], data[2], flags, self.client)
             self._handle_call(call)
             return False
 
