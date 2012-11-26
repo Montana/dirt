@@ -1,6 +1,7 @@
 import zerorpc
 from zerorpc.channel import BufferedChannel
 from zerorpc.heartbeat import HeartBeatOnChannel
+from zerorpc.exceptions import LostRemote
 from dirt.rpc.common import Call
 
 class DirtZeroRPCServer(zerorpc.Server):
@@ -18,7 +19,7 @@ class DirtZeroRPCServer(zerorpc.Server):
         protocol_v1 = initial_event.header.get('v', 1) < 2
         channel = self._multiplexer.channel(initial_event)
         hbchan = HeartBeatOnChannel(channel, freq=self._heartbeat_freq,
-                passive=protocol_v1)
+                                    passive=protocol_v1)
         bufchan = BufferedChannel(hbchan)
         event = bufchan.recv()
         try:
@@ -26,8 +27,8 @@ class DirtZeroRPCServer(zerorpc.Server):
 
             # TODO: support non Req/Rep patterns, such as pubsub, pushpull
             call = Call(event.name, event.args, {}, [])
-            self.edge.execute(call)
-
+            result = self.edge.execute(call)
+            bufchan.emit('OK', (result,), self._context.middleware_get_task_context())
         except LostRemote:
             self._print_traceback(protocol_v1)
         except Exception:
@@ -69,7 +70,8 @@ class DirtZeroRPCClient(zerorpc.Client):
 
     def __call__(self, *args, **kwargs):
         assert self._prefix, "can't call before a prefix has been set"
-        return zerorpc.Client.__call__(self._client, self._prefix, *args, **kwargs)
+        res =  zerorpc.Client.__call__(self._client, self._prefix, *args, **kwargs)
+        return res
 
     def __getattr__(self, suffix):
         new_prefix = self._prefix and self._prefix + "." + suffix or suffix
