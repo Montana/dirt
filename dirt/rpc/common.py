@@ -24,7 +24,7 @@ class Call(object):
         "can_retry": True,
     }
 
-    def __init__(self, name, args=None, kwargs=None, flags=None):
+    def __init__(self, name, args=None, kwargs=None, flags=None, peer=None):
         args = args or ()
         kwargs = kwargs or {}
         flags = flags or {}
@@ -33,10 +33,15 @@ class Call(object):
                 raise ValueError("invalid flag: %r" %(flag, ))
         self.__dict__.update(self.default_flags)
         self.__dict__.update(flags)
-        self.flags = flags
+        # Note: force all kwarg keys to be strings, because some serializers
+        # (ex, JSON) will result in unicode keys, and Python <= 2.6 will
+        # choke when kwargs contains unicode keys (even if they are 7-bit-safe) 
+        kwargs = dict((to_str(key), val) for (key, val) in kwargs.items())
         self.name = name
         self.args = args
-        self.kwargs = dict((to_str(key), val) for (key, val) in kwargs.items())
+        self.kwargs = kwargs
+        self.flags = flags
+        self.peer = peer
         # Some debug-related information about this call
         self.meta = {
             # The time the call was first received.
@@ -48,6 +53,14 @@ class Call(object):
             # returned an iterator.
             "yielded_items": None,
         }
+
+    def __repr__(self):
+        attrs = [
+            ", %s=%r" %(attr, getattr(self, attr))
+            for attr in ["args", "kwargs", "flags", "peer"]
+            if getattr(self, attr)
+        ]
+        return "Call(%r%s)" %(self.name, "".join(attrs), )
 
 
 class ServerBase(object):

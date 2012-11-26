@@ -1,7 +1,7 @@
 from mock import Mock
 from nose.tools import assert_equal
 
-from ..common import RPCClientProxy
+from ..common import RPCClientProxy, Call
 
 class TestRPCClientProxy(object):
     def test_calling(self):
@@ -19,3 +19,10 @@ class TestRPCClientProxy(object):
             "<RPCClientProxy client=%r prefix='prefix'>" %(c, )
         )
 
+class TestCall(object):
+    def test_repr(self):
+        c = Call("foo", kwargs={"stuff": 42})
+        assert_equal(
+            repr(c),
+            "Call('foo', kwargs={'stuff': 42})",
+        )

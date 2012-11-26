@@ -128,5 +128,5 @@ class TestClient(ClientTestBase):
     def test_repr(self):
         assert_equal(
             repr(self.client),
-            "dirt.rpc.proto_dirtrpc.client.Client(remote_url='dirtrpc://mock_server:1234')",
+            "dirt.rpc.proto_drpc.client.Client(remote_url='dirtrpc://mock_server:1234')",
         )
