@@ -23,8 +23,8 @@ class TestConnectionHandler(object):
     def setup(self):
         self.api = Mock()
         self.cxn = Mock()
-        self.meta = APIEdge(MockApp(self.api), None)
-        self.handler = ConnectionHandler(self.meta)
+        self.edge = APIEdge(MockApp(self.api), None)
+        self.handler = ConnectionHandler(self.edge.execute)
         self.handler.cxn = self.cxn
 
     def set_next_message(self, type, data):

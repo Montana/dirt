@@ -1,10 +1,6 @@
-def status(): # XXX fix up (add "return"?), move out of __init__
-    [            
-        pool.summarize()
-        for pool in ConnectionPool.active_pools.values()
-    ]
+from .protocol_registry import *
 
-def connection_handler(call_handler):
-    pass
-
-
+protocol_registry.register({
+    "drpc": __name__ + ".proto_drpc",
+    "zrpc+tcp": __name__ + ".proto_zrpc",
+})

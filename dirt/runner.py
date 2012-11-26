@@ -5,13 +5,13 @@ import logging
 import itertools
 from types import ModuleType
 
-from gevent import Timeout
 from setproctitle import setproctitle
 
-from dirt.rpc.dirtrpc.client import SimpleClient
-from dirt.gevent_ import fork
+from dirt.rpc.common import RPCClientProxy
 from dirt.log import setup_logging, ColoredFormatter
-
+from dirt.imp_ import instance_or_import
+from dirt.gevent_ import fork
+from dirt import rpc
 
 log = logging.getLogger(__name__)
 
@@ -25,15 +25,6 @@ class SettingsWrapper(object):
                 return getattr(link, name)
         raise AttributeError("Cannot find {0!r} in settings chain".format(name))
 
-
-def import_class(to_import):
-    if isinstance(to_import, type):
-        return to_import
-    if "." not in to_import:
-        return __import__(to_import)
-    mod_name, cls_name = to_import.rsplit(".", 1)
-    mod = __import__(mod_name, fromlist=[cls_name])
-    return getattr(mod, cls_name)
 
 class DirtRunner(object):
     def __init__(self, settings):
@@ -262,22 +253,9 @@ class DirtRunner(object):
     def _run(self, app_name, app_settings, app_argv):
         setproctitle(app_name)
         self.setup_blocking_detector(app_settings)
-        app_class = import_class(app_settings.app_class)
+        app_class = instance_or_import(app_settings.app_class)
         app = app_class(app_name, app_settings, app_argv)
         return app.run()
-
-    def api_is_alive(address):
-        # note: defer import of socket in case it's being monkey patched.
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            with Timeout(1.0):
-                s.connect(address)
-        except (socket.error, Timeout):
-            return False
-        finally:
-            s.close()
-        return True
 
     # If we are running multiple apis at once, we will know that some will
     # exist, even if they aren't running *right now*. This set contains
@@ -293,25 +271,28 @@ class DirtRunner(object):
         if allow_mock:
             allow_mock = not ("NO_MOCK_" + api_name.upper()) in os.environ
 
-        remote = getattr(api_settings, "remote", None)
-        if remote is None and use_bind:
-            bind = api_settings.bind
-            remote = (bind[0] or "localhost", bind[1])
+        remote_url = getattr(api_settings, "remote_url", None)
+        if remote_url is None and use_bind:
+            remote_url = api_settings.bind_url
+        if not remote_url:
+            raise Exception("No 'remote_url' specified for %r" %(api_name, ))
 
-        if allow_mock and api_name not in self._get_api_force_no_mock:
-            if not mock_cls:
-                mock_cls = getattr(api_settings, "mock_cls", None)
-            elif remote is None:
-                raise Exception("No 'remote' specified for %r" %(api_name, ))
-            if mock_cls and not self.api_is_alive(remote):
+        ClientCls = rpc.get_client_cls(remote_url)
+        client = ClientCls(remote_url)
+        should_check_mock = (
+            allow_mock and
+            api_name not in self._get_api_force_no_mock
+        )
+        if should_check_mock and not client.server_is_alive():
+            mock_cls = mock_cls or getattr(api_settings, "mock_cls", None)
+            if mock_cls:
+                mock_cls = instance_or_import(mock_cls)
                 log.warning("%s is not up; using mock API %r for %r",
-                            remote, mock_cls, api_name)
+                            remote_url, mock_cls, api_name)
                 return mock_cls()
 
-        ProxyClass = getattr(api_settings, "rpc_proxy", SimpleClient)
-        proxy_args = getattr(api_settings, "rpc_proxy_args", {})
-        proxy_args.setdefault("address", remote)
-        return ProxyClass(**proxy_args)
+        ProxyClass = getattr(api_settings, "rpc_proxy", RPCClientProxy)
+        return ProxyClass(client)
 
     def get_api_factory(self):
         def get_api_factory_helper(*args):

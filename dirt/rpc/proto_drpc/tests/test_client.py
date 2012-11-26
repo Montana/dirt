@@ -2,7 +2,8 @@
 from nose.tools import assert_equal
 from mock import Mock
 
-from ..client import ResultGenerator, RemoteException, Client, SimpleClient
+from dirt.rpc.common import Call
+from ..client import ResultGenerator, RemoteException, Client
 
 class ClientTestBase(object):
     def setup(self):
@@ -75,7 +76,7 @@ class TestResultGenerator(ClientTestBase):
 class TestClient(ClientTestBase):
     def setup(self):
         super(TestClient, self).setup()
-        self.client = Client(('mock_server', 4242))
+        self.client = Client("dirtrpc://mock_server:1234")
         self.client.pool = Mock()
         self.client.pool.release = self._release
         self.released = False
@@ -83,7 +84,7 @@ class TestClient(ClientTestBase):
 
     def test_simple_call(self):
         self.set_messages([("return", 42)])
-        result = self.client.call("foo", 1, bar=2)
+        result = self.client.call(Call("foo", (1,), {"bar": 2}))
         assert_equal(result, 42)
         assert_equal(self.cxn.send_message.call_args_list,
                      [((("call", ("foo", (1, ), {"bar": 2})),), {})])
@@ -92,14 +93,14 @@ class TestClient(ClientTestBase):
 
     def test_returns_stop(self):
         self.set_messages([("stop",)])
-        result = self.client.call("foo")
+        result = self.client.call(Call("foo"))
         assert_equal(list(result), [])
         assert not self.cxn.disconnect.called
         assert self.release_called
 
     def test_returns_yields(self):
         self.set_messages([("yield", 1), ("yield", 2), ("stop", )])
-        result = self.client.call("foo")
+        result = self.client.call(Call("foo"))
         assert_equal(list(result), [1, 2])
         assert not self.cxn.disconnect.called
         assert self.release_called
@@ -107,7 +108,7 @@ class TestClient(ClientTestBase):
     def test_raise(self):
         self.set_messages([("raise", "42")])
         try:
-            self.client.call("foo")
+            self.client.call(Call("foo"))
             raise AssertionError("RemoteException not raised")
         except RemoteException, e:
             pass
@@ -119,28 +120,13 @@ class TestClient(ClientTestBase):
         assert self.release_called
 
     def test_no_want_response(self):
-        self.client.call("foo", _want_response=False)
+        self.client.call(Call("foo", flags={"want_response": False}))
         assert_equal(self.cxn.recv_message.call_count, 0)
         assert not self.cxn.disconnect.called
         assert self.release_called
     
     def test_repr(self):
-        assert_equal(repr(self.client), "<Client server='mock_server:4242'>")
-
-
-class TestSimpleClient(object):
-    def test_caching(self):
-        sc = SimpleClient(client=Mock())
-        assert_equal(sc.foo, sc.foo)
-
-    def test_calling(self):
-        c = Mock()
-        sc = SimpleClient(client=c)
-        sc.foo(1, bar=2)
-        assert_equal(c.call.call_args_list, [(("foo", 1, ), {"bar": 2})])
-
-    def test_repr(self):
-        c = Mock()
-        sc = SimpleClient(client=c)
-        assert_equal(repr(sc.prefix),
-                     "<SimpleClient client=%r prefix='prefix'>" %(c, ))
+        assert_equal(
+            repr(self.client),
+            "dirt.rpc.proto_dirtrpc.client.Client(remote_url='dirtrpc://mock_server:1234')",
+        )

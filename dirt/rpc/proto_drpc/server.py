@@ -1,7 +1,37 @@
-from ...iter import isiter
+import logging
 
-from dirt.rpc.common import Call, expected, is_expected
-from .connection import ConnectionError, MessageError, ServerConnection
+from gevent.server import StreamServer
+
+from dirt.iter import isiter
+from dirt.rpc.common import Call, is_expected, ServerBase
+
+from .connection import (
+    ConnectionError, MessageError, ServerConnection, SocketError,
+)
+
+log = logging.getLogger(__name__)
+
+class Server(ServerBase):
+    def init(self):
+        bind = (self.bind.hostname, self.bind.port)
+        self.server = StreamServer(bind, self.accept_connection)
+
+    def serve_forever(self):
+        self.server.serve_forever()
+
+    def accept_connection(self, socket, address):
+        log_prefix = "connection from %s:%s: " %address
+        log.debug(log_prefix + "accepting")
+
+        handler = ConnectionHandler(self.execute_call)
+        try:
+            handler.accept(socket, address)
+        except Exception, e:
+            if isinstance(e, SocketError) or is_expected(e):
+                log.info(log_prefix + "ignoring expected exception %r", e)
+            else:
+                log.exception(log_prefix + "unexpected exception:")
+
 
 class ConnectionHandler(object):
     """ Accepts and handles one client socket.
@@ -13,8 +43,8 @@ class ConnectionHandler(object):
         Note that one socket may receive multiple calls, and be used by
         multiple threads. """
 
-    def __init__(self, call_handler):
-        self.call_handler = call_handler
+    def __init__(self, execute_call):
+        self.execute_call = execute_call
 
     def accept(self, socket, address):
         """ Accepts a socket, wraps it in a ``ServerConnection``, which is
@@ -61,7 +91,7 @@ class ConnectionHandler(object):
     def _handle_call(self, call):
         """ Handles one ``call`` message. """
         try:
-            result = self.call_handler.execute(call)
+            result = self.execute_call(call)
             if not call.want_response:
                 return
             if isiter(result):

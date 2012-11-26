@@ -10,6 +10,7 @@ from gevent.lock import BoundedSemaphore, DummySemaphore
 from gevent import GreenletExit
 
 from dirt import dt
+from dirt import rpc
 from dirt.iter import isiter
 from dirt.rpc.common import Call
 
@@ -169,9 +170,6 @@ class APIEdge(object):
             self._call_semaphore = semaphore
         return self._call_semaphore
 
-    def get_debug_api(self):
-        return self.app.get_debug_api(self)
-
     def get_call_callable(self, call):
         handler, method_name = self.get_call_handler(call)
         return self.get_call_handler_method(call, handler, method_name)
@@ -264,8 +262,11 @@ class APIEdge(object):
         f._timeout = None
         return f
 
-    def serve(self):
-        self.settings.rpc_class(self, self.settings)
+    def serve_forever(self):
+        ServerCls = rpc.get_server_cls(self.settings.bind_url)
+        server = ServerCls(self.settings.bind_url, self.execute)
+        server.serve_forever()
+
 
 class PIDFile(object):
     def __init__(self, path):
@@ -376,8 +377,8 @@ class DirtApp(object):
             return 1
 
     def serve(self):
-        log.info("binding to %s:%s" %self.settings.bind)
-        self.edge.serve()
+        log.info("binding to %s..." %(self.settings.bind_url, ))
+        self.edge.serve_forever()
 
     def pidfile_path(self):
         pidfile_path_tmpl = getattr(self.settings, "DIRT_APP_PIDFILE", None)

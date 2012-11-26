@@ -1,0 +1,10 @@
+- Figure out expected exception stuff
+- Write documentation
+- Add "peer" to call
+- Add Django examples
+- Add license
+- Rename DirtApp.serve
+
+Adam:
+- Set ``peer=...`` in Call (``CustomZRPCServer._async_task``)
+- Implement ``proto_zrpc.Client.server_is_alive``
