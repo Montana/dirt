@@ -67,13 +67,6 @@ class TestDirtRunner(object):
         ret = self.runner.handle_argv(argv)
         eq_([''], argv)
 
-    def test_handle_argv_with_1_arg_calls_usage_and_returns_1(self):
-        self.runner.usage = Mock()
-        argv = ['']
-        ret = self.runner.handle_argv(argv)
-        self.runner.usage.assert_called_once_with(argv)
-        eq_(1, ret)
-
-    def test_handle_argv_with_2_args_returns_none(self):
-        ret = self.runner.handle_argv(['', ''])
+    def test_handle_argv_with_no_args_returns_none(self):
+        ret = self.runner.handle_argv([])
         eq_(None, ret)

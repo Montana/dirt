@@ -136,10 +136,6 @@ class DirtRunner(object):
             self.settings.log_to_hub = False
             argv.remove("--stop")
 
-        if len(argv) < 2:
-            self.usage(argv)
-            return 1
-
         return None
 
     def run_many(self, argv=None):
@@ -150,6 +146,10 @@ class DirtRunner(object):
         ret = self.handle_argv(argv)
         if ret is not None:
             return ret
+
+        if not app_argvs:
+            self.usage(argv)
+            return 1
 
         class RUN_SETTINGS:
             log_to_hub = False
