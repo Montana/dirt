@@ -3,6 +3,7 @@
 - Add Django examples
 - Rename DirtApp.serve
 - Better description on github
+- Add dirt.conf global settings module
 
 Adam:
 - Set ``peer=...`` in Call (``CustomZRPCServer._async_task``)
