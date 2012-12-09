@@ -316,6 +316,6 @@ class DirtRunner(object):
             return self.get_api(self.settings.__dict__, *args)
         return get_api_factory_helper
 
-def run_many(settings, argv=None, runner=DirtRunner):
-    runner = runner(settings)
+def run_many(settings, argv=None, runner_cls=DirtRunner):
+    runner = runner_cls(settings)
     return runner.run_many(argv=argv)
