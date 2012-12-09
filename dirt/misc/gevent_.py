@@ -1,5 +1,32 @@
+import sys
+import signal
+import logging
+import traceback
+
 import gevent
 from gevent.hub import get_hub
+
+log = logging.getLogger(__name__)
+
+arm_alarm = None
+if hasattr(signal, "setitimer"):
+    def alarm_itimer(seconds):
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+    arm_alarm = alarm_itimer
+else:
+    try:
+        import itimer
+        arm_alarm = itimer.alarm
+    except ImportError:
+        import math
+        def alarm_signal(seconds):
+            signal.alarm(math.ceil(seconds))
+        arm_alarm = alarm_signal
+
+
+class AlarmInterrupt(BaseException):
+    pass
+
 
 def fork():
     """ A workaround for gevent issue 154[0], until that is fixed.

@@ -1,0 +1,4 @@
+Special thanks to:
+- Ādams Grāvītis <adam.gravitis@gmail.com>
+- Taavi Burns <taavi@taaviburns.ca>
+Who were instrumental in turning dirt into a standalone package.

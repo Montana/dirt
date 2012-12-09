@@ -2,11 +2,11 @@
 import os
 import sys
 import time
-import thread
 import logging
-from Queue import Queue
 from itertools import chain
 
+import gevent
+from gevent.queue import Queue
 from dirt.misc.gevent_ import fork
 
 log = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def reloader_loop(extra_files=None, interval=1):
             elif mtime > old_time:
                 log.info('detected change in %r, reloading...', filename)
                 return 3
-        time.sleep(interval)
+        gevent.sleep(interval)
 
 def run_and_push_result(queue, func, args):
     try:
@@ -64,14 +64,10 @@ def run_with_reloader(main_func, extra_files=None, interval=1):
         pid = fork()
         if pid == 0:
             ready_queue = Queue()
-            thread.start_new_thread(
-                run_and_push_result,
-                (ready_queue, main_func, ()),
-            )
-            thread.start_new_thread(
-                run_and_push_result,
-                (ready_queue, reloader_loop, (extra_files, interval)),
-            )
+            gevent.spawn(run_and_push_result,
+                         ready_queue, main_func, ())
+            gevent.spawn(run_and_push_result,
+                         ready_queue, reloader_loop, (extra_files, interval))
             sys.exit(ready_queue.get())
         try:
             pid, code_sig = os.waitpid(pid, 0)

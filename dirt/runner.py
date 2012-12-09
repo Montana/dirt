@@ -5,13 +5,16 @@ import logging
 import itertools
 from types import ModuleType
 
+import gevent
 from setproctitle import setproctitle
 
-from dirt.rpc.common import RPCClientProxy
-from dirt.log import setup_logging, ColoredFormatter
 from dirt import rpc
-from dirt.misc.imp_ import instance_or_import
 from dirt.misc.gevent_ import fork
+from dirt.rpc.common import RPCClientProxy
+from dirt.reloader import run_with_reloader
+from dirt.misc.imp_ import instance_or_import
+from dirt.misc.gevent_ import BlockingDetector
+from dirt.log import setup_logging, ColoredFormatter
 
 log = logging.getLogger(__name__)
 
@@ -234,10 +237,10 @@ class DirtRunner(object):
         setup_logging(app_name, app_settings)
         use_reloader = getattr(app_settings, "USE_RELOADER", False)
         if use_reloader and not app_settings.stop_app:
-            from .reloader import run_with_reloader
             setproctitle("%s-reloader" %(app_name, ))
             return run_with_reloader(
-                lambda: self._run(app_name, app_settings, app_argv))
+                lambda: self._run(app_name, app_settings, app_argv)
+            )
         else:
             return self._run(app_name, app_settings, app_argv)
 
@@ -245,10 +248,15 @@ class DirtRunner(object):
         timeout = getattr(app_settings, "BLOCKING_DETECTOR_TIMEOUT", None)
         if not timeout:
             return
-        import gevent
-        from .gevent_ import BlockingDetector
         raise_exc = getattr(app_settings, "BLOCKING_DETECTOR_RAISE_EXC", False)
+        if raise_exc:
+            log_suffix = "an AlarmInterrupt exception will be raised in"
+        else:
+            log_suffix = "a log.warning will be issued if"
+        log.info("Using blocking detector; %s any thread that blocks for more "
+                 "than %s seconds", log_suffix, timeout)
         gevent.spawn(BlockingDetector(timeout=timeout, raise_exc=raise_exc))
+        gevent.sleep(0)
 
     def _run(self, app_name, app_settings, app_argv):
         setproctitle(app_name)

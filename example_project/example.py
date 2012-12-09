@@ -1,6 +1,6 @@
-import time
 import logging
 
+import gevent
 from dirt import DirtApp, runloop
 
 log = logging.getLogger(__name__)
@@ -32,4 +32,4 @@ class SecondApp(DirtApp):
         while True:
             log.info("ping zrpc: %r", api_zrpc.ping())
             log.info("ping drpc: %r", api_drpc.ping())
-            time.sleep(1)
+            gevent.sleep(1)

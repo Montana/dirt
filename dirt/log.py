@@ -3,6 +3,8 @@ import time
 import logging
 import logging.handlers
 
+from dirt.misc.dictconfig import dictConfig
+
 ANSI_COLORS = dict(zip(
     ["grey", "red", "green", "yellow", "blue", "magenta", "cyan", "white"],
     ["\033[%dm" %x for x in range(30, 38)],
@@ -161,7 +163,6 @@ logging_default = lambda log_file_base, root_level="DEBUG": {
 def setup_logging(app_name, app_settings):
     AppNameInjector.app_name = app_name
 
-    from .dictconfig import dictConfig
     if not hasattr(app_settings, "LOGGING"):
         logging.basicConfig()
         log.warning("'LOGGING' not found in settings; using failsafe defaults.")
