@@ -81,7 +81,6 @@ class GotSleep(Exception):
 
 
 class TestRunloop(object):
-
     def test_bad_use(self):
         try:
             runloop(42)
@@ -108,17 +107,23 @@ class TestRunloop(object):
             return input
         assert_raises(GotSleep, run)
 
+    @parameterized([
+        ("keyboard interrupt", KeyboardInterrupt()),
+        ("system exit", SystemExit()),
+        ("greenlet exit", GreenletExit()),
+    ])
     def test_greenlet_exit(self):
         @runloop(log)
         def run():
-            raise GreenletExit()
-        assert_raises(GreenletExit, run)
+            raise exception
+        assert_raises(type(exception), run)
 
     @parameterized([
-        expected(Exception("expected exception")),
-        Exception("unexpected exception"),
+        ("expected exc", expected(Exception("expected exception"))),
+        ("unexpected exc", Exception("unexpected exception")),
+        ("gevent.Timeout", gevent.Timeout()),
     ])
-    def test_restart_on_exception(self, exception):
+    def test_restart_on_exception(self, name, exception):
         @runloop(log, sleep=GotSleep.mock())
         def run():
             raise exception

@@ -431,7 +431,12 @@ class DirtApp(object):
         raise Exception("Subclasses must implement the 'get_api' method.")
 
 
-def runloop(log, sleep=time.sleep):
+RUNLOOP_DEFAULT_RE_RAISE_EXCEPTIONS = [
+    SystemExit, KeyboardInterrupt, GreenletExit,
+]
+
+def runloop(log, sleep=time.sleep,
+            re_raise_exc=None, re_raise_exc_use_defaults=True):
     """ A decorator which makes a function run forever, logging any errors::
 
             log = logging.getLogger("example")
@@ -451,7 +456,32 @@ def runloop(log, sleep=time.sleep):
             def exiting_runloop():
                 return runloop.done
 
+        By default, ``runloop`` will catch all subclasses of ``BaseException``,
+        except for ``SystemExit``, ``KeyboardInterrupt``, and ``GreenletExit``
+        (see ``RUNLOOP_DEFAULT_RE_RAISE_EXCEPTIONS``). The ``re_raise_exc``
+        argument can be supplied, and exception types listed there will also be
+        re-raised::
+
+            @runloop(log, re_raise_exc=(MyException, ))
+            def my_exception_not_caught():
+                # The runloop will not catch ``MyException``
+                ...
+
+         Additionally, the ``re_raise_exc_use_defaults`` flag can be set to
+         ``False`` to ignore the default list of exceptions::
+
+            @runloop(log, re_raise_exc_use_defaults=False)
+            def all_exceptions_caught():
+                # All exceptions (including ``KeyboardInterrupt`` and
+                # ``SystemExit``) will be caught; this function will never
+                # exit.
+                ...
     """
+
+    re_raise_exc = tuple(
+        list(re_raise_exc or []) +
+        list(re_raise_exc_use_defaults and RUNLOOP_DEFAULT_RE_RAISE_EXCEPTIONS or [])
+    )
 
     if not all(callable(getattr(log, x, None)) for x in ["info", "exception"]):
         raise ValueError((
@@ -485,15 +515,13 @@ def runloop(log, sleep=time.sleep):
                 sleep_time = get_sleep_time(start_time)
                 log.info("%r returned %r; restarting in %s...",
                          func, result, sleep_time)
-            except GreenletExit:
-                log.debug("%r stopping due to GreenletExit", func)
+            except re_raise_exc as e:
+                log.debug("%r stopping due to %r", func, e)
                 raise
-            except Exception:
+            except BaseException as e:
                 sleep_time = get_sleep_time(start_time)
-                log_suffix = "restarting in %s..." %(sleep_time, )
-
-                log.exception("%r raised unexpected exception; %s",
-                              func, log_suffix)
+                log.exception("%r raised unexpected exception; "
+                              "restarting in %s...", func, sleep_time)
             sleep(sleep_time)
 
     def runloop_return(f):
