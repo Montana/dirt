@@ -14,7 +14,8 @@ from dirt.rpc.common import RPCClientProxy
 from dirt.reloader import run_with_reloader
 from dirt.misc.imp_ import instance_or_import
 from dirt.misc.gevent_ import BlockingDetector
-from dirt.log import setup_logging, ColoredFormatter
+from dirt.log import AppNameInjector, ColoredFormatter
+from dirt.misc.dictconfig import dictConfig as loggingDictConfig
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ class DirtRunner(object):
         class RUN_SETTINGS:
             log_to_hub = False
         logging_settings = SettingsWrapper(RUN_SETTINGS, self.settings)
-        setup_logging("run", logging_settings)
+        self.setup_logging("run", logging_settings)
 
         # Check to see if we're running a script
         if "/" in app_argvs[0][0]:
@@ -228,13 +229,13 @@ class DirtRunner(object):
             "settings": self.settings,
         })
         sys.modules["dirtscript"] = dirtscript
-        setup_logging(script_path, self.settings)
+        self.setup_logging(script_path, self.settings)
         execfile(script_path)
         return 0
 
     def run_app(self, app_name, app_settings, app_argv):
         app_settings.get_api = self.get_api_factory()
-        setup_logging(app_name, app_settings)
+        self.setup_logging(app_name, app_settings)
         use_reloader = getattr(app_settings, "USE_RELOADER", False)
         if use_reloader and not app_settings.stop_app:
             setproctitle("%s-reloader" %(app_name, ))
@@ -243,6 +244,14 @@ class DirtRunner(object):
             )
         else:
             return self._run(app_name, app_settings, app_argv)
+
+    def setup_logging(self, app_name, app_settings):
+        AppNameInjector.app_name = app_name
+        if not hasattr(app_settings, "LOGGING"):
+            logging.basicConfig()
+            log.warning("'LOGGING' not found in settings; using failsafe defaults.")
+            return
+        loggingDictConfig(app_settings.LOGGING)
 
     def setup_blocking_detector(self, app_settings):
         timeout = getattr(app_settings, "BLOCKING_DETECTOR_TIMEOUT", None)
@@ -307,6 +316,6 @@ class DirtRunner(object):
             return self.get_api(self.settings.__dict__, *args)
         return get_api_factory_helper
 
-def run_many(settings, argv=None):
-    runner = DirtRunner(settings)
+def run_many(settings, argv=None, runner=DirtRunner):
+    runner = runner(settings)
     return runner.run_many(argv=argv)

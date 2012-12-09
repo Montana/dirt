@@ -159,20 +159,3 @@ logging_default = lambda log_file_base, root_level="DEBUG": {
     },
 }
 
-
-def setup_logging(app_name, app_settings):
-    AppNameInjector.app_name = app_name
-
-    if not hasattr(app_settings, "LOGGING"):
-        logging.basicConfig()
-        log.warning("'LOGGING' not found in settings; using failsafe defaults.")
-        return
-    dictConfig(app_settings.LOGGING)
-
-    # XXX: have a pluggable log_to_hub like this:
-    # if getattr(app_settings, "log_to_hub", True):
-    #     from ensi_common.msg_hub.logger import HubLogHandler
-    #     hub_handler = HubLogHandler()
-    #     hub_handler.addFilter(AppNameInjector())
-    #     hub_handler.set_hub(app_settings.get_api("msg_hub"))
-    #     logging.root.addHandler(hub_handler)

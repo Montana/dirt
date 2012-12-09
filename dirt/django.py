@@ -25,7 +25,7 @@ class DjangoApp(DirtApp):
         """ Calls ``DirtApp.serve`` to start the RPC server, which lets callers
             use the debug API. """
         if getattr(self.settings, "bind_url", None) is None:
-            self.log.info("no `bind_url` specified; RPC server not starting...")
+            self.log.info("no `bind_url` specified; RPC server not starting.")
             return
         DirtApp.serve(self)
 
