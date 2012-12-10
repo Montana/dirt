@@ -5,19 +5,21 @@ from dirt import DirtApp, runloop
 
 log = logging.getLogger(__name__)
 
-class FirstMock(object):
+class MockPing(object):
     def ping(self):
         log.info("mock got ping...")
         return "mock pong"
 
-class FirstAPI(object):
+
+class PingAPI(object):
     def ping(self):
         log.info("got ping...")
         return "pong"
 
-class FirstApp(DirtApp):
+
+class PingApp(DirtApp):
     def get_api(self, edge, call):
-        return FirstAPI()
+        return PingAPI()
 
     def start(self):
         log.info("starting...")
