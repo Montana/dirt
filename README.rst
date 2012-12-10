@@ -6,15 +6,15 @@ applications ("services") which can communicate over RPC.
 
 Specifically, it provides:
 
-* An RPC framework with pluggable protocols (currently a custom protocol,
-  ``drpc``, and ZeroRPC).
-* A framework for creating long-running applications which can expose methods
-  over RPC.
+* Tools for exposing methods over RPC (using either a dirt custom protocol or
+  ZeroRPC, including nicities like iPython tab completion).
+* A framework for creating long-running applications, and exposing their
+  methods over RPC.
 * Tools for running multiple applications in one terminal, either for
   development or in production.
-* A simple syntax for defining applications, which is largely configuration
-  file format independent (currently only Django-style ``settings.py`` files
-  are best supported, but ``.ini`` could easily be supported too).
+* A simple syntax for defining applications (currently Django-style
+  ``settings.py`` files are best supported, but ``.ini`` could easily be
+  supported too).
 
 An application can be as simple as::
 

@@ -10,7 +10,7 @@ from setproctitle import setproctitle
 
 from dirt import rpc
 from dirt.misc.gevent_ import fork
-from dirt.rpc.common import RPCClientProxy
+from dirt.rpc.common import ClientWrapper
 from dirt.reloader import run_with_reloader
 from dirt.misc.imp_ import instance_or_import
 from dirt.misc.gevent_ import BlockingDetector
@@ -308,8 +308,8 @@ class DirtRunner(object):
                             remote_url, mock_cls, api_name)
                 return mock_cls()
 
-        ProxyClass = getattr(api_settings, "rpc_proxy", RPCClientProxy)
-        return ProxyClass(client)
+        WrapperClass = getattr(api_settings, "rpc_wrapper", ClientWrapper)
+        return WrapperClass(client)
 
     def get_api_factory(self):
         def get_api_factory_helper(*args):

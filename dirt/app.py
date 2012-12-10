@@ -139,7 +139,7 @@ class APIEdge(object):
             class MyApp(DirtApp):
                 edge_class = APIEdge
 
-                def get_api(self, socket, address):
+                def get_api(self, edge, call):
                     return MyAPI()
         """
 
@@ -346,10 +346,10 @@ class DirtApp(object):
     }
     api_handlers = {}
 
-    def __init__(self, app_name, settings, app_argv):
+    def __init__(self, app_name, settings, app_argv=None):
         self.app_name = app_name
         self.settings = settings
-        self.app_argv = app_argv
+        self.app_argv = app_argv or []
         self.api_handlers = self._get_api_handlers()
         self.edge = self.edge_class(self, self.settings)
 

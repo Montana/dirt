@@ -112,7 +112,7 @@ class TestRunloop(object):
         ("system exit", SystemExit()),
         ("greenlet exit", GreenletExit()),
     ])
-    def test_greenlet_exit(self):
+    def test_expected_errors(self, name, exception):
         @runloop(log)
         def run():
             raise exception

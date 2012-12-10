@@ -106,7 +106,13 @@ class ClientBase(object):
         )
 
 
-class RPCClientProxy(object):
+class ClientWrapper(object):
+    """ A thin wrapper around a ``Client`` which provides convinience methods
+        for "transparent" dotted-access and iPython tab completion.
+        
+        Calling ``ClientWrapper(client).foo.bar(baz)`` is roughly equivilent to
+        ``client.call(Call("foo.bar", args=(baz, )))``. """
+
     def __init__(self, client, prefix=""):
         self._client = client
         self._prefix = prefix
@@ -122,10 +128,13 @@ class RPCClientProxy(object):
         """ For tab completion with iPyhton. """
         return []
 
+    def _call(self, name, *args, **kwargs):
+        call = Call(name, args, kwargs)
+        return self._client.call(call)
+
     def __call__(self, *args, **kwargs):
         assert self._prefix, "can't call before a prefix has been set"
-        call = Call(self._prefix, args, kwargs)
-        return self._client.call(call)
+        return self._call(self._prefix, *args, **kwargs)
 
     def __getattr__(self, suffix):
         new_prefix = self._prefix and self._prefix + "." + suffix or suffix

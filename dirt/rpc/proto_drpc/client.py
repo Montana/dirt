@@ -63,7 +63,7 @@ class Client(ClientBase):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             with Timeout(1.0):
-                s.connect((self.bind.hostname, self.bind.port))
+                s.connect((self.remote.hostname, self.remote.port))
         except (socket.error, Timeout):
             return False
         finally:
