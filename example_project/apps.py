@@ -5,7 +5,7 @@ from dirt import DirtApp, runloop
 
 log = logging.getLogger(__name__)
 
-class MockPing(object):
+class PingMock(object):
     def ping(self):
         log.info("mock got ping...")
         return "mock pong"
@@ -24,14 +24,27 @@ class PingApp(DirtApp):
     def start(self):
         log.info("starting...")
 
+def PongAPI(object):
+    def __init__(self, app):
+        self.app = app
 
-class SecondApp(DirtApp):
+    def get_count(self):
+        return self.app.count
+
+class PongApp(DirtApp):
+    def setup(self):
+        self.count = 0
+
+    def get_api(self, edge, call):
+        return PongAPI(self)
+
     @runloop(log)
     def serve(self):
-        log.info("Trying to ping FirstApp...")
-        api_zrpc = self.settings.get_api("first_zrpc")
-        api_drpc = self.settings.get_api("first_drpc")
+        log.info("Trying to ping...")
+        api_zrpc = self.settings.get_api("ping_zrpc")
+        api_drpc = self.settings.get_api("ping_drpc")
         while True:
             log.info("ping zrpc: %r", api_zrpc.ping())
             log.info("ping drpc: %r", api_drpc.ping())
+            self.count += 1
             gevent.sleep(1)

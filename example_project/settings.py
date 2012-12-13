@@ -9,20 +9,20 @@ DIRT_APP_PIDFILE = "/tmp/dirt-example-{app_name}.pid"
 # has blocked execution for more thann 5 seconds.
 BLOCKING_DETECTOR_TIMEOUT = 5
 
-class FIRST_ZRPC:
-    app_class = "example.FirstApp"
+class PING_ZRPC:
+    app_class = "apps.PingApp"
     bind_url = "zrpc+tcp://127.0.0.1:9990"
     remote_url = bind_url
-    mock_cls = "example.FirstMock"
+    mock_cls = "apps.PingMock"
 
-class FIRST_DRPC:
-    app_class = "example.FirstApp"
+class PING_DRPC:
+    app_class = "apps.PingApp"
     bind_url = "drpc://127.0.0.1:9991"
     remote_url = bind_url
-    mock_cls = "example.FirstMock"
+    mock_cls = "apps.PingMock"
 
-class SECOND:
-    app_class = "example.SecondApp"
+class PONG:
+    app_class = "apps.PongApp"
 
 class DJANGO_EXAMPLE:
     app_class = "dirt.django.DjangoApp"

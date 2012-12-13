@@ -1,3 +1,3 @@
 To see dirt in action, run::
 
-    $ ./run first_drpc second
+    $ ./run ping_drpc pong django_example
