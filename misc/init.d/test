@@ -1,0 +1,39 @@
+#!/bin/bash
+# A simple test of the screen_initd
+
+IFS="`printf "\n\t"`"
+set -eu
+cd "`dirname "$0"`"
+
+if [[ "${1-}" == "--stop" ]]; then
+    exit 0
+fi
+
+if [[ "${1-}" == "--from-initd" ]]; then
+    for x in 1 2 3 4; do
+        echo $x
+        sleep 1
+    done
+    exit 1
+fi
+
+if [[ "${1-}" == -* ]]; then
+    echo "Usage: $0 [start|stop|restart]"
+    echo "Used to test the screen_initd. For example:"
+    echo "    $ ./test"
+    echo "    Starting screen-initd-test... Done."
+    echo "    Use 'screen -x' to see the screen session."
+    echo "    $ ./test stop"
+
+fi
+
+export SCREEN_INITD_PATH="$PWD/screen_initd"
+export USE_VIRTUAL_ENV="$VIRTUAL_ENV"
+export COMMAND="$0 --from-initd"
+export USER="$USER"
+export SCRIPT="/etc/init.d/screen-initd-test"
+cmd="${1-start}"
+./screen_initd "$cmd"
+if [[ "$cmd" != "stop" ]]; then
+    echo "Use 'screen -x' to see the screen session."
+fi

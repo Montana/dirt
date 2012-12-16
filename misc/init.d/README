@@ -1,0 +1,16 @@
+These scripts can be coppied into your application's distribution to run your
+application from init.d inside a screen session. See './install -h' for more
+information.
+
+To see what this would look like, run './test'.
+
+You've heard it's bad to run screen in production? This is probably because
+screen is often started manually, and manually anything in production is
+generally bad. These scripts automate everything, so your application can be
+run using::
+
+    $ /etc/init.d/your-app start
+
+And problems can be diagnosed using::
+
+    $ screen -x your-app

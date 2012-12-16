@@ -1,0 +1,74 @@
+# Dirt runner bash completion
+# ===========================
+#
+# Completes dirt app names.
+#
+# For example::
+#     $ export DIRT_RUNNER_COMMANDS=( "run" )
+#     $ source dirt/misc/bash_completion
+#     $ ./run <TAB>
+#     django_example  ping_drpc       ping_zrpc       pong            
+#     $ ./run django_example
+#     ping_drpc       ping_zrpc       pong            
+#
+#
+# Usage
+# -----
+#
+# Put this script in a sensible location (ex, ``~/.dirt_bash_completion``),
+# then add to ``~/.bashrc``::
+#     export DIRT_RUNNER_COMMANDS=( "run" "your_command" )
+#     source ~/.dirt_bash_completion
+
+_dirt_complete() {
+    local runner_path cur_word
+    cur_word="${COMP_WORDS[$COMP_CWORD]}"
+
+    # Handle dirtscripts. Returning an empty array causes Bash to fall back to
+    # using filename completion.
+    if [[ "$cur_word" == .* || "$cur_word" == */* ]]; then
+        COMPREPLY=()
+        return 0
+    fi
+
+    runner_path="$(which ${COMP_WORDS[0]})"
+    if [[ "$runner_path" != "$__DIRT_RUNNER_PATH" ]]; then
+        __DIRT_APPS=
+    fi
+
+    # Cache the seen apps so we don't need to start the app each time
+    if [[ -z "${__DIRT_APPS-}" ]]; then
+        export __DIRT_RUNNER_PATH="$runner_path"
+        export __DIRT_APPS="$("${COMP_WORDS[0]}" --list-apps)"
+    fi
+
+    # Only show apps which aren't already in the command line
+    local app apps seen_app word
+    apps=()
+    for app in $__DIRT_APPS; do
+        seen_app=false
+        for word in "${COMP_WORDS[@]}"; do
+            if [[ "$word" == "$app" ]]; then
+                seen_app=true
+                break
+            fi
+        done
+        if [[ "$seen_app" == false ]]; then
+            apps[${#apps[@]}]="$app"
+        fi
+    done
+
+    COMPREPLY=( $(compgen -W "${apps[*]}" -- "$cur_word") )
+}
+
+if [[ -z "${DIRT_RUNNER_COMMANDS-}" ]]; then
+    echo "${BASH_SOURCE-dirt bash completion}: WARNING:"
+    echo "    DIRT_RUNNER_COMMANDS not defined! It should be an array of "
+    echo "    runner command names. For example:"
+    echo "        export DIRT_RUNNER_COMMANDS=( \"run\" )"
+    echo "        source ${BASH_SOURCE-~/.dirt_bash_completion}"
+else
+    complete -F _dirt_complete -o default "${DIRT_RUNNER_COMMANDS[@]}"
+fi
+
+# vim: set filetype=sh :

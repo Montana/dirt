@@ -1,0 +1,99 @@
+#!/bin/bash
+# Installs an init.d script into /etc/init.d/
+# Run without any arguments to see help.
+
+IFS="`printf "\n\t"`"
+set -eu
+
+if [[ "${1-}" == "--preview" ]]; then
+    shift
+    preview=true
+fi
+
+if [[ "$#" -ne 4 ]]; then
+    echo "usage: $0: [--preview] INITD_NAME VIRTUALENV COMMAND USER"
+    echo "Relative paths will work correctly. For example:"
+    echo "    $ cd your_app_deploy_path/"
+    echo "    $ sudo init.d/install your-app env/ ./run app-user"
+    echo ""
+    echo "This will:"
+    echo "* Create '/etc/init.d/your-app'"
+    echo "* Which will start, stop, reset the command './run'"
+    echo "* Inside the virtualenv at 'env/'"
+    echo "* As the user 'app-user'"
+    echo "* If available, use 'update-rc.d' to add the '/etc/init.d/your-app'"
+    echo "  to the default runlevel (ie, star it automatically on boot)."
+    echo ""
+    echo "Use the '--preview' option to get a preview of the script which"
+    echo "will be installed without actually installing it."
+    exit 1
+fi
+
+initd_name="$1"
+virtualenv="$2"
+cmd="$3"
+user="$4"
+screen_initd_path="$(dirname "$0")/screen_initd"
+
+if [[ ! -f "$screen_initd_path" ]]; then
+    echo "Error: $screen_initd_path not found." >&2
+    exit 1
+fi
+
+if [[ "$cmd" =~ [[:space:]] ]]; then
+    echo "Error: '$cmd' contains whitespace." >&2
+    echo "For various reasons, this will break things. Sorry." >&2
+    exit 1
+fi
+
+if [[ "${preview-}" ]]; then
+    initd_file="/dev/stdout"
+else
+    initd_file="/etc/init.d/$1"
+fi
+
+if [[ -f "$initd_file" ]]; then
+    echo "$initd_file already exists." >&2
+    exit 2
+fi
+
+if [[ ! -f "$virtualenv/bin/activate" ]]; then
+    echo "Error: $virtualenv/bin/activate doesn't exist." >&2
+    exit 3
+fi
+
+cat <<EOF > "$initd_file"
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          $initd_name
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+
+cd "$PWD"
+SCREEN_INITD_PATH="$screen_initd_path"
+USE_VIRTUAL_ENV="$virtualenv"
+COMMAND="$cmd"
+USER="$user"
+
+if [[ "\$(whoami)" != "\$USER" ]]; then
+    su "\$USER" -c "\$0 \$*"
+    exit \$?
+fi
+
+SCRIPT="\$0"
+. "\$SCREEN_INITD_PATH"
+EOF
+
+if [[ -z "${preview-}" ]]; then
+    chmod +x "$initd_file"
+    if which update-rc.d > /dev/null; then
+        update-rc.d "$initd_name" defaults
+        echo "$initd_name added to default runlevel"
+    fi
+    echo "installed to $initd_file"
+

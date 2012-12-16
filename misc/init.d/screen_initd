@@ -1,0 +1,97 @@
+#!/bin/bash
+set -eu
+
+NAME="$(basename "$SCRIPT")"
+SCREENRC="$(dirname "$SCREEN_INITD_PATH")/screenrc"
+# If the COMMAND is not an array, split it into an array
+if [[ "$(declare -p COMMAND)" != "declare -a"* ]]; then
+    COMMAND=( $COMMAND )
+fi
+COMMAND_STR="${COMMAND[@]}"
+
+getpid() {
+    # Assumes that 'screen -ls' will look something like:
+    #     Your inventory:
+    #         2592.screen-initd-test  (Detached)
+    #     1 Socket in /.../.screen.
+    screen -ls | awk '
+        BEGIN { FS="." }
+        /^[ \t]*[0-9]+\.'"$NAME"'/ {
+            sub(/^[ \t]*/, "", $1)
+            print $1
+        }
+    '
+}
+
+activate_virtualenv() {
+    if [[ -z "${VIRTUAL_ENV-}" ]]; then
+        set +u
+        . "$USE_VIRTUAL_ENV/bin/activate"
+        set -u
+    fi
+}
+
+start() {
+    local running="$(getpid)"
+    if [[ ! -z "$running" ]]; then
+        echo "error: already running (pid: $running)"
+        return 1
+    fi  
+    activate_virtualenv
+    local deadfile="/tmp/initd-$NAME-dead"
+    [[ -f "$deadfile" ]] && rm "$deadfile"
+    screen -dmS "$NAME" -t "$NAME" -c "$SCREENRC" bash -c "
+        after() {
+            date > '$deadfile'
+            echo \"\"
+            echo \"exited with status \$RESULT:\"
+            echo \"$COMMAND_STR\"
+            bash
+        }
+        trap after EXIT
+        $COMMAND_STR
+        RESULT=\$?
+    "
+    sleep 1     
+    if [[ -f "$deadfile" ]]; then
+        echo "error: '$COMMAND_STR' returned an error (see 'screen -x $NAME')"
+        return 1
+    fi          
+}
+
+stop() {
+    local pid="$(getpid)"
+    if [[ -z "$pid" ]]; then
+        echo "error: no screen session $NAME"
+        return 1
+    fi
+    activate_virtualenv
+    "${COMMAND[0]}" --stop "${COMMAND[@]:1}"
+    kill "$pid"
+}
+
+case "${1-}" in
+    start)
+        echo -n "Starting $NAME... "
+        start
+        echo "Done."
+        ;;
+
+    stop)
+        echo -n "Stopping $NAME... "
+        stop
+        echo "Done."
+        ;;
+
+    restart)
+        echo -n "Restarting $NAME..."
+        stop || true
+        start
+        echo "Done."
+        ;;
+
+    *)
+        echo "usage: $0 [start|stop|restart]"
+        exit 1;
+        ;;
+esac
