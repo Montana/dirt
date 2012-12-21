@@ -12,6 +12,7 @@ from gevent import GreenletExit
 from dirt import rpc
 from dirt.rpc.common import Call
 from dirt.misc.iter import isiter
+from dirt.misc.gevent_ import AlarmInterrupt
 
 log = logging.getLogger(__name__)
 
@@ -432,7 +433,7 @@ class DirtApp(object):
 
 
 RUNLOOP_DEFAULT_RE_RAISE_EXCEPTIONS = [
-    SystemExit, KeyboardInterrupt, GreenletExit,
+    SystemExit, KeyboardInterrupt, GreenletExit, AlarmInterrupt,
 ]
 
 def runloop(log, sleep=time.sleep,

@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 arm_alarm = None
 if hasattr(signal, "setitimer"):
     def alarm_itimer(seconds):
-        signal.setitimer(signal.ITIMER_REAL, seconds)
+        return signal.setitimer(signal.ITIMER_REAL, seconds)[0]
     arm_alarm = alarm_itimer
 else:
     try:
@@ -20,11 +20,17 @@ else:
     except ImportError:
         import math
         def alarm_signal(seconds):
-            signal.alarm(math.ceil(seconds))
+            return signal.alarm(math.ceil(seconds))
         arm_alarm = alarm_signal
 
 
 class AlarmInterrupt(BaseException):
+    """ Default exception raised by the ``BlockingDetector`` when it detects
+        blocking.
+
+        **NOTE**: This is a subclass of ``BaseException``, so it *will not* be
+        caught by ``except Exception:`` (although it will be caught by
+        ``dirt.runloop``). """
     pass
 
 
@@ -83,53 +89,88 @@ def getany_and_join(greenlets):
 
 
 class BlockingDetector(object):
-    """
-    Utility class to detect thread blocking. Intended for debugging only.
-    
-    ``timeout`` is the number of seconds to wait before considering the thread
-    blocked.
+    """ Use operating system signals to detect blocking threads.
 
-    ``raise_exc`` controls whether or not an exception is raised
-    (default: ``True``). If ``raise_exc`` is ``False`` only a log message
-    will be written.
-    
-    Operates by setting and attempt to clear an alarm signal. The alarm signal
-    cannot be cleared then the thread is considered blocked and
-    ``BlockingDetector.alarm_handler`` is invoked with the signal and current
-    frame. An ``AlarmInterrupt`` exception will be raised if the signal
-    actually gets raised.
-    
-    Invoke via: gevent.spawn(BlockingDetector())
+    ``timeout=1`` is the number of seconds to wait before considering the
+    thread blocked (note: if ``signal.setitimer`` or the ``itimer`` package is
+    available, this can be a real number; otherwise it will be rounded up to
+    the nearest integer).
+
+    ``raise_exc=AlarmInterrupt`` controls which exception will be raised
+    in the blocking thread. If ``raise_exc`` is False-ish, no exception will be
+    raised (a ``log.warning`` message, including stack trace, will always be
+    issued). **NOTE**: the default value, ``AlarmInterrupt``, is a subclass of
+    ``BaseException``, so it *will not* be caught by ``except Exception:`` (it
+    will be caught by ``dirt.runloop``). For example::
+
+        # Don't raise an exception, only log a warning message and stack trace:
+        BlockingDetector(raise_exc=False)
+
+        # Raise ``MyException()`` and lot a warning message:
+        BlockingDetector(raise_exc=MyException())
+
+        # Raise ``MyException("blocking detected after timeout=...")`` and log
+        # a warning message:
+        BlockingDetector(raise_exc=MyException)
+
+    ``aggressive=True`` determines whether the blocking detector will reset
+    as soon as it is triggered, or whether it will wait until the blocking
+    thread yields before it resets. For example, if ``aggressive=True``,
+    ``raise_exc=False``, and ``timeout=1``, a log message will be written for
+    every second that a thread blocks. However, if ``aggressive=False``, only
+    one log message will be written until the blocking thread yields, at which
+    point the alarm will be reset.
+
+    Note: ``BlockingDetector`` overwrites the ``signal.SIGALRM`` handler, and
+    does not attempt to save the previous value.
+
+    For example::
+
+        >>> def spinblock():
+        ...     while True:
+        ...         pass
+        >>> gevent.spawn(BlockingDetector())
+        >>> gevent.sleep()
+        >>> spinblock()
+        Traceback (most recent call last):
+          File "<stdin>", line 1, in <module>
+          File "<stdin>", line 3, in spinblock
+          File ".../dirt/misc/gevent_.py", line 167, in alarm_handler
+            raise exc
+        dirt.misc.gevent_.AlarmInterrupt: blocking detected after timeout=1
+
     """
-    def __init__(self, timeout=1, raise_exc=True):
+    def __init__(self, timeout=1, raise_exc=AlarmInterrupt, aggressive=True):
         self.timeout = timeout
         self.raise_exc = raise_exc
+        self.aggressive = aggressive
 
     def __call__(self):
         """
         Loop for 95% of our detection time and attempt to clear the signal.
         """
-        while True:
-            self.set_signal()
-            gevent.sleep(self.timeout * 0.95)
+        try:
+            while True:
+                self.reset_signal()
+                gevent.sleep(self.timeout * 0.95)
+        finally:
             self.clear_signal()
-            # sleep the rest of the time
-            gevent.sleep(self.timeout * 0.05)
 
     def alarm_handler(self, signum, frame):
         log.warning("blocking detected after timeout=%r; stack:\n%s",
                     self.timeout, "".join(traceback.format_stack(frame)))
+        if self.aggressive:
+            self.reset_signal()
         if self.raise_exc:
-            raise AlarmInterrupt("blocking detected")
+            exc = self.raise_exc
+            if issubclass(exc, type):
+                exc = exc("blocking detected after timeout=%r"
+                          %(self.timeout, ))
+            raise exc
 
-    def set_signal(self):
-        tmp = signal.signal(signal.SIGALRM, self.alarm_handler)
-        if tmp != self.alarm_handler:
-            self._old_signal_handler = tmp
+    def reset_signal(self):
+        signal.signal(signal.SIGALRM, self.alarm_handler)
         arm_alarm(self.timeout)
 
     def clear_signal(self):
-        if (hasattr(self, "_old_signal_handler") and self._old_signal_handler):
-            signal.signal(signal.SIGALRM, self._old_signal_handler)
-        signal.alarm(0)
-
+        arm_alarm(0)
