@@ -3,8 +3,8 @@ from dirt import logging_default
 DEBUG = True
 USE_RELOADER = DEBUG
 ALLOW_MOCK_API = DEBUG
-LOGGING = logging_default("/tmp/dirt-example-log", root_level="INFO")
 DIRT_APP_PIDFILE = "/tmp/dirt-example-{app_name}.pid"
+LOGGING = logging_default("/tmp/dirt-example-{app_name}.log", root_level="INFO")
 # Use dirt.misc.gevent_.BlockingDetector to detect when any single green thread
 # has blocked execution for more thann 5 seconds.
 BLOCKING_DETECTOR_TIMEOUT = 5

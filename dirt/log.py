@@ -3,7 +3,9 @@ import time
 import logging
 import logging.handlers
 
-from dirt.misc.dictconfig import dictConfig
+from gevent.coros import RLock
+
+from dirt.misc.imp_ import instance_or_import
 
 ANSI_COLORS = dict(zip(
     ["grey", "red", "green", "yellow", "blue", "magenta", "cyan", "white"],
@@ -57,13 +59,78 @@ class EnvVarLogFilter(logging.Filter):
         ])
         return not any(filter in msg for filter in self.filters)
 
-_TimedRotatingFileHandler = logging.handlers.TimedRotatingFileHandler
+class DirtFileHandler(logging.Handler):
+    """ A log handler which expands ``{app_name}`` in the provided ``filename``
+        so that each app will log to its own file using the provided
+        ``handler_cls``.
 
-class TimedRotatingFileHandler(_TimedRotatingFileHandler):
-    def __init__(self, filename, *args, **kwargs):
-        if not os.path.exists(os.path.dirname(filename)):
-            os.mkdir(os.path.dirname(filename))
-        _TimedRotatingFileHandler.__init__(self, filename, *args, **kwargs)
+        For example::
+
+            DirtFileHandler(filename="/var/logs/dirt-{app_name}/log",
+                            handler_cls="logging.RotatingFileHandler",
+                            max_bytes=1024*1024)
+
+        Note: the ``DirtFileHandler`` will appear to work if ``{app_name}`` is
+        not included in the ``filename``, but it will likely result in mangled
+        logs, as the apps -- running in separate OS processes -- will be
+        writing to the same logfile. """
+
+    def __init__(self, filename, handler_cls, *handler_args, **handler_kwargs):
+        handler_level = handler_kwargs.get("level", logging.NOTSET)
+        logging.Handler.__init__(self, level=handler_level)
+        self.filename = filename
+        self.handlers = {}
+        self.handlers_lock = RLock()
+        self.handler_cls = instance_or_import(handler_cls)
+        self.handler_args = handler_args
+        self.handler_kwargs = handler_kwargs
+
+    def _create_handler(self, app_name):
+        # nb: it's possible that ``app_fmt`` will be the empty string if
+        # "{app_name}" does not occur in the filename! 
+        base, app_fmt, suffix = self.filename.partition("{app_name}")
+        filename = base + app_fmt.format(app_name=app_name) + suffix
+        for path in [base, filename]:
+            dir = os.path.dirname(path)
+            if not os.path.exists(dir):
+                try:
+                    os.mkdir(dir)
+                except OSError as e:
+                    if e.errno != 17: # file exists
+                        raise
+                    pass
+        handler = self.handler_cls(filename, *self.handler_args,
+                                   **self.handler_kwargs)
+        handler.formatter = self.formatter
+        return handler
+
+    def handle(self, record):
+        rv = self.filter(record)
+        if not rv:
+            return rv
+        try:
+            handler = self.handlers[record.app_name]
+        except KeyError:
+            with self.handlers_lock:
+                app_name = record.app_name
+                if app_name not in self.handlers:
+                    handler = self._create_handler(app_name)
+                    self.handlers[app_name] = handler
+            handler = self.handlers[record.app_name]
+        try:
+            handler.acquire()
+            handler.emit(record)
+        finally:
+            handler.release()
+        return rv
+    
+    def close(self):
+        with self.handlers_lock:
+            old_handlers = self.handlers
+            self.handlers = {}
+            for handler in old_handlers.values():
+                handler.close()
+
 
 class UTCFormatter(logging.Formatter):
     converter = time.gmtime
@@ -96,7 +163,7 @@ class ColoredFormatter(logging.Formatter):
         return logging.Formatter.format(self, record)
 
 
-logging_default = lambda log_file_base, root_level="DEBUG": {
+logging_default = lambda log_filename, root_level="DEBUG": {
     "version": 1,
     "disable_existing_loggers": False,
 
@@ -141,12 +208,13 @@ logging_default = lambda log_file_base, root_level="DEBUG": {
             "stream": "ext://sys.stdout",
         },
         "rotating_file_handler": {
-            "class": __name__ + ".TimedRotatingFileHandler",
+            "class": __name__ + ".DirtFileHandler",
             "level": "DEBUG",
             "filters": ["app_name_injector"],
             "formatter": "production_fmt",
-            "filename": log_file_base,
-            "when": "midnight",
+            "filename": log_filename,
+            "handler_cls": "logging.handlers.RotatingFileHandler",
+            "maxBytes": 1024*1024,
         },
     },
 

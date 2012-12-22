@@ -47,7 +47,7 @@ An application can be as simple as::
     from dirt import logging_default
     USE_RELOADER = False
     DIRT_APP_PIDFILE = "/tmp/dirt-example-{app_name}.pid"
-    LOGGING = logging_default("/tmp/dirt-example-log", root_level="INFO")
+    LOGGING = logging_default("/tmp/dirt-example-{app_name}.log", root_level="INFO")
 
     class PING:
         app_class = "app.PingApp"
