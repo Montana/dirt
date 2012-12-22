@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 class AppNameInjector(logging.Filter):
     """ Ensures that all log records have an 'app_name' field.
-    
+
         ``app_name`` will be set by ``setup_logging``. """
 
     app_name = "__no_app__"
@@ -73,7 +73,16 @@ class DirtFileHandler(logging.Handler):
         Note: the ``DirtFileHandler`` will appear to work if ``{app_name}`` is
         not included in the ``filename``, but it will likely result in mangled
         logs, as the apps -- running in separate OS processes -- will be
-        writing to the same logfile. """
+        writing to the same logfile.
+
+        Hint: Use ``sort --merge`` to merge multiple log files::
+
+            $ sort --merge logs/dirt-{first_app,second_app}/log
+            19:01:41,042Z first_app INFO log msg 1
+            19:01:42,042Z second_app INFO log msg 2
+            19:01:43,042Z first_app INFO log msg 3
+            19:01:44,042Z second_app INFO log msg 4
+        """
 
     def __init__(self, filename, handler_cls, *handler_args, **handler_kwargs):
         handler_level = handler_kwargs.get("level", logging.NOTSET)
@@ -87,7 +96,7 @@ class DirtFileHandler(logging.Handler):
 
     def _create_handler(self, app_name):
         # nb: it's possible that ``app_fmt`` will be the empty string if
-        # "{app_name}" does not occur in the filename! 
+        # "{app_name}" does not occur in the filename!
         base, app_fmt, suffix = self.filename.partition("{app_name}")
         filename = base + app_fmt.format(app_name=app_name) + suffix
         for path in [base, filename]:
@@ -123,7 +132,7 @@ class DirtFileHandler(logging.Handler):
         finally:
             handler.release()
         return rv
-    
+
     def close(self):
         with self.handlers_lock:
             old_handlers = self.handlers
