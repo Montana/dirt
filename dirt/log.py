@@ -3,7 +3,7 @@ import time
 import logging
 import logging.handlers
 
-from gevent.coros import RLock
+from gevent.lock import RLock
 
 from dirt.misc.imp_ import instance_or_import
 
