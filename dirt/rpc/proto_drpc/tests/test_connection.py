@@ -8,6 +8,7 @@ from mock import Mock
 
 from ..connection import (
     ServerConnection, ClientConnection, ConnectionError, MessageSocket,
+    ConnectionPool,
 )
 from dirt.testing import assert_contains, parameterized
 
@@ -204,3 +205,9 @@ class TestMessageSocket(object):
             raise AssertionError("expected exception not raised")
         except ValueError, e:
             assert_contains(str(e), "42")
+
+
+class TestConnectionPool(object):
+    def test_repr(self):
+        pool = ConnectionPool("1.2.3.4")
+        assert_equal(repr(pool), "<ConnectionPool '1.2.3.4' active=0 available=0 created=0 max=32>")

@@ -528,9 +528,18 @@ class ConnectionPool(object):
             diagnostics and debugging. """
 
         return {
-            "peer": "%s:%s" %self.connection_kwargs.get("address", "?:?"),
+            "peer": self.connection_kwargs.get("address", "?"),
             "num_active": len(self._in_use_connections),
             "num_inactive": len(self._available_connections),
             "num_created": self._created_connections,
+            "num_max": self.max_connections,
         }
 
+    def __repr__(self):
+        summary = self.summarize()
+        summary["type_name"] = type(self).__name__
+        return (
+            "<%(type_name)s %(peer)r "
+            "active=%(num_active)r available=%(num_inactive)r "
+            "created=%(num_created)r max=%(num_max)r>"
+        ) %summary
