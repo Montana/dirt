@@ -209,5 +209,5 @@ class TestMessageSocket(object):
 
 class TestConnectionPool(object):
     def test_repr(self):
-        pool = ConnectionPool("1.2.3.4")
-        assert_equal(repr(pool), "<ConnectionPool '1.2.3.4' active=0 available=0 created=0 max=32>")
+        pool = ConnectionPool(("1.2.3.4", 5678))
+        assert_equal(repr(pool), "<ConnectionPool '1.2.3.4:5678' active=0 available=0 created=0 max=32>")

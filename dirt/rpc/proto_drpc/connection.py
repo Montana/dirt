@@ -472,7 +472,6 @@ class ConnectionPool(object):
         num = type(self)._instance_count
         type(self)._instance_count += 1
         self.log = logging.getLogger(__name__ + ".ConnectionPool-%02d" %(num, ))
-
         self.connection_class = connection_class
         self.connection_kwargs = {
             "address": address,
@@ -527,8 +526,13 @@ class ConnectionPool(object):
         """ Returns a summary of this connection pool which can be used for
             diagnostics and debugging. """
 
+        try:
+            peer = "%s:%s" %self.connection_kwargs["address"]
+        except Exception:
+            # ``except Exception`` here to ensure that summarize never crashes
+            peer = "<invalid:%s>" %(self.connection_kwargs.get("address"), )
         return {
-            "peer": self.connection_kwargs.get("address", "?"),
+            "peer": peer,
             "num_active": len(self._in_use_connections),
             "num_inactive": len(self._available_connections),
             "num_created": self._created_connections,
