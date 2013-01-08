@@ -33,3 +33,9 @@ class DjangoApp(DirtApp):
         self.api_thread = gevent.spawn(self.serve_dirt_rpc)
         self.log.info("Starting server on http://%s:%s...", *self.settings.http_bind)
         self.server.serve_forever()
+
+    def get_api(self, *args, **kwargs):
+        """ The DjangoApp returns an empty API object by default so that tab
+            completion of the API will work. Feel free to override this method.
+            """
+        return object()
