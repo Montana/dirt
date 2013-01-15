@@ -230,7 +230,7 @@ class DirtRunner(object):
         })
         sys.modules["dirtscript"] = dirtscript
         self.setup_logging(script_path, self.settings)
-        execfile(script_path)
+        execfile(script_path, {})
         return 0
 
     def run_app(self, app_name, app_settings, app_argv):

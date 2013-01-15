@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # NOTE: We need this little hack to make sure that tox will run correctly from
-# web (as it runs 'python ../pycommon/setup.py develop').
+# a different directory (as it runs 'python ../dirt/setup.py develop').
 import os
 os.chdir(os.path.dirname(__file__) or ".")
 
