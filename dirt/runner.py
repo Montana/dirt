@@ -33,6 +33,9 @@ class SettingsWrapper(object):
 class DirtRunner(object):
     def __init__(self, settings):
         self.settings = settings
+        self.app_colors = iter(itertools.cycle(
+            ["blue", "magenta", "cyan", "green", "grey", "white"]
+        ))
 
     def list_apps(self):
         apps = []
@@ -151,39 +154,17 @@ class DirtRunner(object):
         logging_settings = SettingsWrapper(RUN_SETTINGS, self.settings)
         self.setup_logging("run", logging_settings)
 
-        # Check to see if we're running a script
-        if "/" in app_argvs[0][0]:
-            # XXX: Hack. Not sure how we want to rewrite sys.argv in the case
-            # of running scripts (which don't fork, so can't have multiple
-            # things running, so the argv parsing we did above is partially
-            # moot)
-            argv[0] = "%s %s" % (run_argv[0], app_argvs[0][0])
-            script_path = argv.pop(len(run_argv))
-            return self.run_script(script_path)
-
-        app_names_settings = [
-            (app_argv[0], self.get_app_settings(app_argv[0]), app_argv[1:])
-            for app_argv in app_argvs
-        ]
-
         self._get_api_force_no_mock.update(argv[1:])
 
-        app_colors = iter(itertools.cycle(
-            ["blue", "magenta", "cyan", "green", "grey", "white"]
-        ))
-
-        pid = -1
         try:
-            app_pids = {}
-            for app_name, app_settings, app_argv in app_names_settings:
-                app_color = next(app_colors)
-                pid = fork()
-                if pid > 0:
-                    app_pids[pid] = app_name
-                else:
-                    os.setsid()
-                    ColoredFormatter.app_color = app_color
-                    return self.run_app(app_name, app_settings, app_argv)
+            parent_proc = False
+            app_pids = self.fork_and_run_many(run_argv, app_argvs)
+
+            # Because the child processes started by 'fork_and_run_many' will
+            # raise a 'SystemExit' when they exit, they will hit the 'finally'
+            # block below, but 'parent_proc' will be False at that point, so no
+            # cleanup will be attempted.
+            parent_proc = True
 
             while app_pids:
                 try:
@@ -199,13 +180,13 @@ class DirtRunner(object):
 
                 if status != 4:
                     log_message = (status == 0) and log.info or log.warning
-                    log_message("app %s exited with status %s",
+                    log_message("%r exited with status %s",
                                 app_pids.get(child, child), status)
 
                 break
 
         finally:
-            pids_to_kill = (pid > 0) and app_pids.keys() or []
+            pids_to_kill = parent_proc and app_pids.keys() or []
             for pid_to_kill in pids_to_kill:
                 try:
                     os.killpg(pid_to_kill, signal.SIGTERM)
@@ -223,7 +204,37 @@ class DirtRunner(object):
                         log.error("killing %r: %s", pid_to_kill, e)
         return status
 
-    def run_script(self, script_path):
+    def fork_and_run_many(self, run_argv, app_argvs):
+        app_pids = {}
+        for app_argv in app_argvs:
+            app_name, app_argv = app_argv[0], app_argv[1:]
+            pid = self.fork_and_run_one(run_argv, app_name, app_argv)
+            app_pids[pid] = app_name
+        return app_pids
+
+    def fork_and_run_one(self, run_argv, app_name, app_argv):
+        app_color = next(self.app_colors)
+        pid = fork()
+        if pid > 0:
+            return pid
+
+        os.setsid()
+        ColoredFormatter.app_color = app_color
+        result = self.run_one(run_argv, app_name, app_argv)
+        sys.exit(result)
+
+    def run_one(self, run_argv, app_name, app_argv):
+        if "/" in app_name:
+            fake_argv = [run_argv[0], app_name] + app_argv
+            result = self.run_script(app_name, fake_argv=fake_argv)
+        else:
+            app_settings = self.get_app_settings(app_name)
+            result = self.run_app(app_name, app_settings, app_argv)
+        return result
+
+    def run_script(self, script_path, fake_argv=None):
+        if fake_argv:
+            sys.argv[:] = fake_argv
         dirtscript = ModuleType("dirtscript")
         dirtscript.__dict__.update({
             "settings": self.settings,

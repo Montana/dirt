@@ -7,6 +7,7 @@ from ..runner import DirtRunner
 class TestDirtRunner(object):
     def setup(self):
         self.runner = DirtRunner(Mock())
+        self.runner.setup_logging = Mock()
 
     @raises(ValueError)
     def test_parse_argv_with_nothing_raises_value_error(self):
@@ -70,3 +71,13 @@ class TestDirtRunner(object):
     def test_handle_argv_with_no_args_returns_none(self):
         ret = self.runner.handle_argv([])
         eq_(None, ret)
+
+    def test_run_app_and_script(self):
+        self.runner.run_app = lambda app_name, *a, **kw: "app_pid"
+        self.runner.run_script = lambda app_name, *a, **kw: "script_pid"
+        self.runner.fork_and_run_one = self.runner.run_one
+        
+        run_argv, app_argvs = self.runner.parse_argv(["run", "foo", "./bar"])
+        res = self.runner.fork_and_run_many(run_argv, app_argvs)
+        eq_(res["app_pid"], "foo")
+        eq_(res["script_pid"], "./bar")
