@@ -78,14 +78,6 @@ class DirtRunner(object):
             from IPython.Shell import IPShellEmbed
             IPShellEmbed(argv='')()
 
-    def run(self, argv=None):
-        if argv is None:
-            argv = sys.argv
-        if len(argv) > 2:
-            print "error: only one app can be specified"
-            return 1
-        self.run_many(argv)
-
     def usage(self, argv):
         print (
             "usage: %s [-h|--help] [--shell] [--stop] "
@@ -136,7 +128,13 @@ class DirtRunner(object):
 
         return None
 
-    def run_many(self, argv=None):
+    def run_many(self, *a, **kw):
+        import warnings
+        warnings.warn("'runner.run_many' is deprectated; "
+                      "'runner.run' should be used instead")
+        return self.run(*a, **kw)
+
+    def run(self, argv=None):
         if argv is None:
             argv = sys.argv
 
@@ -327,6 +325,11 @@ class DirtRunner(object):
             return self.get_api(self.settings.__dict__, *args)
         return get_api_factory_helper
 
-def run_many(settings, argv=None, runner_cls=DirtRunner):
+def run(settings, argv=None, runner_cls=DirtRunner):
     runner = runner_cls(settings)
-    return runner.run_many(argv=argv)
+    return runner.run(argv=argv)
+
+def run_many(*a, **kw):
+    import warnings
+    warnings.warn("'run_many' is deprectated; 'run' should be used instead")
+    return run(*a, **kw)

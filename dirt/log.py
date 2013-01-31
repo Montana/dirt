@@ -154,7 +154,7 @@ class ColoredFormatter(logging.Formatter):
     ]
     COLORS.sort(reverse=True)
 
-    # Will be set in `run_many`
+    # Will be set in `run`
     app_color = "white"
 
     def __init__(self, *args, **kwargs):
