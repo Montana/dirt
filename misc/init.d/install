@@ -96,4 +96,5 @@ if [[ -z "${preview-}" ]]; then
         echo "$initd_name added to default runlevel"
     fi
     echo "installed to $initd_file"
+fi
 
